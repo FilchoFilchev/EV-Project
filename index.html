@@ -5,33 +5,29 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="EchoVault voice recording and audio licensing platform" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/main.css" />
     <title>EchoVault</title>
   </head>
   <body>
-    <div id="app">
-      <header class="border-bottom bg-light">
-        <nav class="container navbar navbar-expand-md" aria-label="Primary navigation">
-          <a class="navbar-brand fw-semibold" href="/">EchoVault</a>
-          <div class="ms-auto d-flex gap-2">
-            <a class="btn btn-outline-primary btn-sm" href="/login.html">Login</a>
-            <a class="btn btn-primary btn-sm" href="/register.html">Register</a>
-          </div>
-        </nav>
-      </header>
-      <main class="container py-5">
-        <div class="row align-items-center gy-4">
-          <div class="col-lg-7">
+    <div id="app" data-page="index">
+      <div id="navbar"></div>
+      <main class="container">
+        <section class="hero-section" aria-labelledby="hero-heading">
+          <div class="hero-content">
             <p class="text-uppercase fw-semibold text-primary mb-2">SoftUni Capstone Project</p>
-            <h1 class="display-4 fw-bold">Record. Transform. Share.</h1>
+            <h1 id="hero-heading" class="fw-bold">Record. Transform. Share.</h1>
             <p class="lead text-secondary">
-              EchoVault is being prepared for secure voice recording, audio effects,
-              private storage, and demo licensing.
+              Record your voice, apply real audio effects, and publish licensed previews
+              in a secure demo marketplace.
             </p>
             <a class="btn btn-primary btn-lg" href="/register.html">Get started</a>
           </div>
-        </div>
+        </section>
       </main>
+      <div id="footer"></div>
     </div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/js/pages/homePage.js"></script>
   </body>
 </html>

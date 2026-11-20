@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/main.css" />
+    <title>Voice Details | EchoVault</title>
+  </head>
+  <body>
+    <div id="app" data-page="marketplace">
+      <div id="navbar"></div>
+      <main class="container py-5">
+        <a class="link-secondary" href="/marketplace.html">&larr; Back to Marketplace</a>
+        <h1 class="h2 mt-3">Voice details</h1>
+        <div class="alert alert-secondary mt-4" role="status">Listing details require a valid listing ID and database integration.</div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" type="button" disabled>Demo Buy</button>
+          <button class="btn btn-outline-primary" type="button" disabled>Demo Rent</button>
+          <button class="btn btn-outline-danger" type="button" disabled>Report</button>
+        </div>
+      </main>
+      <div id="footer"></div>
+    </div>
+    <script type="module" src="/src/js/pages/voiceDetailsPage.js"></script>
+  </body>
+</html>

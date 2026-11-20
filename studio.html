@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/main.css" />
+    <title>Voice Studio | EchoVault</title>
+  </head>
+  <body>
+    <div id="app" data-page="studio">
+      <div id="navbar"></div>
+      <main class="container py-5">
+        <h1 class="h2 mb-4">Voice Studio</h1>
+        <div class="row g-4">
+          <section class="col-lg-7" aria-labelledby="recorder-heading">
+            <article class="card">
+              <div class="card-body">
+                <h2 id="recorder-heading" class="h5">Recorder</h2>
+                <p class="text-secondary">Recording controls will be available in the next implementation prompt.</p>
+                <div class="d-flex gap-2"><button class="btn btn-danger" type="button" disabled>Record</button><button class="btn btn-outline-secondary" type="button" disabled>Stop</button></div>
+              </div>
+            </article>
+          </section>
+          <aside class="col-lg-5" aria-labelledby="effects-heading">
+            <article class="card">
+              <div class="card-body">
+                <h2 id="effects-heading" class="h5">Audio effects</h2>
+                <p class="text-secondary">Muffle, Distortion, and Echo controls require a Premium account.</p>
+                <button class="btn btn-outline-primary" type="button" disabled>Preview effect</button>
+              </div>
+            </article>
+          </aside>
+        </div>
+      </main>
+      <div id="footer"></div>
+    </div>
+    <script type="module" src="/src/js/pages/studioPage.js"></script>
+  </body>
+</html>

@@ -1,7 +1,20 @@
 :root {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #212529;
-  background: #ffffff;
+  --ev-white: #ffffff;
+  --ev-secondary-bg: #f6faf7;
+  --ev-mint: #e2efe6;
+  --ev-sage: #a4c6b0;
+  --ev-accent: #4e7b63;
+  --ev-accent-hover: #405f4d;
+  --ev-text: #263d30;
+  --ev-muted: #718878;
+  --ev-border: rgba(78, 123, 99, 0.16);
+  --ev-surface: rgba(164, 198, 176, 0.15);
+  --ev-radius: 0.75rem;
+  --ev-shadow: 0 8px 24px rgba(38, 61, 48, 0.06);
+
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ev-text);
+  background: var(--ev-white);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -12,6 +25,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  background: var(--ev-white);
+  color: var(--ev-text);
 }
 
 #app {
@@ -22,4 +37,296 @@ body {
 
 #app main {
   flex: 1;
+  padding-top: clamp(2rem, 5vw, 4.5rem) !important;
+  padding-bottom: clamp(2.5rem, 6vw, 5rem) !important;
+}
+
+.container {
+  max-width: 1120px;
+}
+
+.navbar-brand {
+  color: var(--ev-accent);
+  letter-spacing: -0.02em;
+}
+
+.navbar-brand:hover,
+.navbar-brand:focus {
+  color: var(--ev-accent-hover);
+}
+
+.navbar {
+  min-height: 72px;
+}
+
+.site-header {
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--ev-border) !important;
+  backdrop-filter: blur(10px);
+}
+
+.navbar-nav {
+  gap: 0.25rem;
+}
+
+.navbar .nav-link {
+  color: var(--ev-muted);
+  border-radius: 999px;
+  padding: 0.55rem 0.85rem !important;
+  font-weight: 600;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus {
+  color: var(--ev-accent);
+  background: var(--ev-surface);
+}
+
+.navbar .nav-link.active {
+  color: var(--ev-accent);
+  background: var(--ev-mint);
+}
+
+.navbar-toggler {
+  border-color: var(--ev-border);
+  color: var(--ev-accent);
+}
+
+.navbar-toggler:focus {
+  box-shadow: 0 0 0 0.2rem var(--ev-surface);
+}
+
+.page-heading {
+  max-width: 720px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.page-card {
+  min-height: 180px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+.h1,
+.h2,
+.h3,
+.h4,
+.h5 {
+  color: var(--ev-text);
+  letter-spacing: -0.025em;
+}
+
+.lead,
+.text-secondary,
+.text-muted {
+  color: var(--ev-muted) !important;
+}
+
+.btn {
+  border-radius: 0.625rem;
+  font-weight: 700;
+  padding-inline: 1rem;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.btn-primary {
+  --bs-btn-color: var(--ev-white);
+  --bs-btn-bg: var(--ev-accent);
+  --bs-btn-border-color: var(--ev-accent);
+  --bs-btn-hover-color: var(--ev-white);
+  --bs-btn-hover-bg: var(--ev-accent-hover);
+  --bs-btn-hover-border-color: var(--ev-accent-hover);
+  --bs-btn-active-color: var(--ev-white);
+  --bs-btn-active-bg: var(--ev-accent-hover);
+  --bs-btn-active-border-color: var(--ev-accent-hover);
+  --bs-btn-disabled-color: var(--ev-white);
+  --bs-btn-disabled-bg: #91a898;
+  --bs-btn-disabled-border-color: #91a898;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--ev-accent);
+  --bs-btn-border-color: var(--ev-sage);
+  --bs-btn-hover-color: var(--ev-white);
+  --bs-btn-hover-bg: var(--ev-accent);
+  --bs-btn-hover-border-color: var(--ev-accent);
+  --bs-btn-active-color: var(--ev-white);
+  --bs-btn-active-bg: var(--ev-accent);
+  --bs-btn-active-border-color: var(--ev-accent);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--ev-muted);
+  --bs-btn-border-color: var(--ev-border);
+  --bs-btn-hover-color: var(--ev-text);
+  --bs-btn-hover-bg: var(--ev-mint);
+  --bs-btn-hover-border-color: var(--ev-sage);
+}
+
+.btn-danger,
+.btn-outline-danger {
+  border-radius: 0.625rem;
+}
+
+.card {
+  border: 1px solid var(--ev-border);
+  border-radius: var(--ev-radius);
+  background: var(--ev-white);
+  box-shadow: var(--ev-shadow);
+}
+
+.card-body {
+  padding: clamp(1.25rem, 2vw, 1.75rem);
+}
+
+.form-control,
+.form-select {
+  min-height: 46px;
+  border-color: var(--ev-border);
+  border-radius: 0.625rem;
+  color: var(--ev-text);
+  background-color: var(--ev-white);
+}
+
+.form-control::placeholder {
+  color: #98a79d;
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: var(--ev-sage);
+  box-shadow: 0 0 0 0.22rem rgba(164, 198, 176, 0.22);
+}
+
+.form-check-input:checked {
+  background-color: var(--ev-accent);
+  border-color: var(--ev-accent);
+}
+
+.alert {
+  border-radius: var(--ev-radius);
+  border: 1px solid var(--ev-border);
+}
+
+.alert-secondary {
+  color: var(--ev-muted);
+  background: var(--ev-secondary-bg);
+}
+
+.alert-warning {
+  color: var(--ev-text);
+  background: rgba(226, 239, 230, 0.7);
+  border-color: var(--ev-sage);
+}
+
+.nav-tabs {
+  border-bottom-color: var(--ev-border);
+}
+
+.nav-tabs .nav-link {
+  color: var(--ev-muted);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-weight: 600;
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--ev-accent);
+  background: transparent;
+  border-bottom-color: var(--ev-accent);
+}
+
+.border,
+.border-top,
+.border-bottom,
+.border-start,
+.border-end {
+  border-color: var(--ev-border) !important;
+}
+
+.bg-light {
+  background: var(--ev-secondary-bg) !important;
+}
+
+.bg-white {
+  background: var(--ev-white) !important;
+}
+
+.link-secondary {
+  color: var(--ev-muted) !important;
+  text-decoration: none;
+}
+
+.link-secondary:hover,
+.link-secondary:focus {
+  color: var(--ev-accent) !important;
+}
+
+.hero-section {
+  min-height: clamp(480px, 68vh, 660px);
+  max-width: 820px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.hero-section .hero-content {
+  width: 100%;
+  max-width: 720px;
+}
+
+.hero-section h1 {
+  margin-bottom: 1.25rem;
+  font-size: clamp(2.5rem, 7vw, 4.75rem);
+  line-height: 1.02;
+}
+
+.hero-section .lead {
+  max-width: 620px;
+  margin: 0 auto 2rem;
+}
+
+footer {
+  background: var(--ev-secondary-bg) !important;
+  border-top: 1px solid var(--ev-border) !important;
+}
+
+@media (max-width: 991.98px) {
+  .navbar-collapse {
+    padding: 0.75rem 0 1rem;
+  }
+
+  .navbar-nav {
+    width: 100%;
+  }
+
+  .navbar .nav-link {
+    border-radius: 0.625rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  #app main {
+    padding-inline: 0.75rem;
+  }
+
+  .navbar {
+    min-height: 64px;
+  }
+
+  .hero-section {
+    min-height: 440px;
+  }
+
+  .hero-section h1 {
+    font-size: clamp(2.25rem, 12vw, 3.25rem);
+  }
 }

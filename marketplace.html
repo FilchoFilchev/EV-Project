@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/main.css" />
+    <title>Marketplace | EchoVault</title>
+  </head>
+  <body>
+    <div id="app" data-page="marketplace">
+      <div id="navbar"></div>
+      <main class="container py-5">
+        <h1 class="h2 mb-4">Marketplace</h1>
+        <form class="row g-2 mb-4" role="search" aria-label="Search listings">
+          <div class="col-md-6"><label class="visually-hidden" for="market-search">Search title</label><input class="form-control" id="market-search" type="search" placeholder="Search by title" disabled /></div>
+          <div class="col-md-4"><label class="visually-hidden" for="category-filter">Category</label><select class="form-select" id="category-filter" disabled><option>All categories</option></select></div>
+          <div class="col-md-2"><button class="btn btn-primary w-100" type="submit" disabled>Search</button></div>
+        </form>
+        <div class="alert alert-secondary" role="status">Marketplace listings will appear here after Supabase integration.</div>
+      </main>
+      <div id="footer"></div>
+    </div>
+    <script type="module" src="/src/js/pages/marketplacePage.js"></script>
+  </body>
+</html>

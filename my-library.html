@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/main.css" />
+    <title>My Library | EchoVault</title>
+  </head>
+  <body>
+    <div id="app" data-page="my-library">
+      <div id="navbar"></div>
+      <main class="container py-5">
+        <h1 class="h2 mb-4">My Library</h1>
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item"><button class="nav-link active" type="button">Original recordings</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" disabled>Edited versions</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" disabled>My listings</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" disabled>Acquired licenses</button></li>
+        </ul>
+        <div class="border border-top-0 rounded-bottom p-4">
+          <p class="text-secondary mb-0">Your personal library is empty. Data loading starts after Supabase integration.</p>
+        </div>
+      </main>
+      <div id="footer"></div>
+    </div>
+    <script type="module" src="/src/js/pages/myLibraryPage.js"></script>
+  </body>
+</html>

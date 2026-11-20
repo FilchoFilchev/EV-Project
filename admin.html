@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/main.css" />
+    <title>Admin | EchoVault</title>
+  </head>
+  <body>
+    <div id="app" data-page="admin">
+      <div id="navbar"></div>
+      <main class="container py-5">
+        <h1 class="h2 mb-4">Admin panel</h1>
+        <div class="alert alert-warning">Admin access and operations require server-side authorization.</div>
+        <div class="row g-3">
+          <div class="col-md-4"><article class="card page-card"><div class="card-body"><h2 class="h5">Users</h2><p class="text-secondary">Profiles and demo Premium status.</p></div></article></div>
+          <div class="col-md-4"><article class="card page-card"><div class="card-body"><h2 class="h5">Listings</h2><p class="text-secondary">Archive or restore marketplace listings.</p></div></article></div>
+          <div class="col-md-4"><article class="card page-card"><div class="card-body"><h2 class="h5">Reports</h2><p class="text-secondary">Review and resolve user reports.</p></div></article></div>
+        </div>
+      </main>
+      <div id="footer"></div>
+    </div>
+    <script type="module" src="/src/js/pages/adminPage.js"></script>
+  </body>
+</html>
