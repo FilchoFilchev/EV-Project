@@ -15,7 +15,7 @@ export function renderNavbar(activePage) {
   document.querySelector('#navbar').innerHTML = `
     <header class="site-header border-bottom sticky-top">
       <nav class="container navbar navbar-expand-lg" aria-label="Primary navigation">
-        <a class="navbar-brand fw-bold" href="/">EchoVault</a>
+        <a class="navbar-brand fw-bold" href="/" aria-label="EchoVault home"><span>E</span>cho<span>V</span>ault</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-navigation"
           aria-controls="main-navigation" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>

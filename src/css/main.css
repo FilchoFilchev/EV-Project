@@ -11,8 +11,9 @@
   --ev-surface: rgba(164, 198, 176, 0.15);
   --ev-radius: 0.75rem;
   --ev-shadow: 0 8px 24px rgba(38, 61, 48, 0.06);
+  --ev-pale-green: #e2efe6;
 
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
   color: var(--ev-text);
   background: var(--ev-white);
   font-synthesis: none;
@@ -25,14 +26,17 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  position: relative;
   background: var(--ev-white);
   color: var(--ev-text);
 }
 
 #app {
-  min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 #app main {
@@ -41,13 +45,109 @@ body {
   padding-bottom: clamp(2.5rem, 6vw, 5rem) !important;
 }
 
+#page-content {
+  animation: ev-page-enter 220ms ease-in-out both;
+}
+
+#page-content.ev-page-leaving {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 220ms ease-in-out, transform 220ms ease-in-out;
+}
+
+@keyframes ev-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#app[data-page="index"] main {
+  min-height: calc(100svh - 72px - 57px);
+  padding: 0 !important;
+  background-image: url("/echovault-background.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+#app[data-page="index"] .hero-section {
+  width: 100%;
+  max-width: none;
+  min-height: inherit;
+  padding: 2rem 1.25rem;
+  position: relative;
+}
+
+#app[data-page="index"] .hero-content {
+  position: absolute;
+  inset: 0;
+  max-width: none;
+}
+
+#app[data-page="index"] .hero-content h1,
+#app[data-page="index"] .hero-content p {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#app[data-page="index"] .hero-cta-hitarea {
+  position: absolute;
+  left: var(--hero-cta-left, 50%);
+  top: var(--hero-cta-top, 64%);
+  width: var(--hero-cta-width, 8.3%);
+  height: var(--hero-cta-height, 5.9%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: transparent;
+  background: transparent;
+  border: 0;
+  border-radius: 0.75rem;
+  text-shadow: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+#app[data-page="index"] .hero-cta-hitarea:hover {
+  color: transparent;
+  background: transparent;
+}
+
+#app[data-page="index"] .hero-cta-hitarea:focus-visible {
+  color: transparent;
+  outline: 3px solid var(--ev-text);
+  outline-offset: 3px;
+  background: rgba(78, 123, 99, 0.08);
+}
+
 .container {
   max-width: 1120px;
 }
 
 .navbar-brand {
   color: var(--ev-accent);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.035em;
+  font-size: 1.28rem;
+  font-weight: 800 !important;
+}
+
+.navbar-brand span {
+  color: var(--ev-text);
+  font-size: 1.12em;
+  font-weight: 850;
 }
 
 .navbar-brand:hover,
@@ -60,8 +160,9 @@ body {
 }
 
 .site-header {
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid var(--ev-border) !important;
+  background: var(--ev-pale-green);
+  border-bottom: 1px solid rgba(78, 123, 99, 0.22) !important;
+  box-shadow: 0 3px 16px rgba(38, 61, 48, 0.035);
   backdrop-filter: blur(10px);
 }
 
@@ -117,7 +218,8 @@ h5,
 .h4,
 .h5 {
   color: var(--ev-text);
-  letter-spacing: -0.025em;
+  letter-spacing: -0.035em;
+  font-weight: 780;
 }
 
 .lead,
@@ -284,19 +386,25 @@ h5,
 }
 
 .hero-section h1 {
-  margin-bottom: 1.25rem;
-  font-size: clamp(2.5rem, 7vw, 4.75rem);
-  line-height: 1.02;
+  margin-bottom: 1.35rem;
+  font-size: clamp(2.65rem, 7vw, 4.75rem);
+  line-height: 1.01;
+  font-weight: 820;
+  text-wrap: balance;
 }
 
 .hero-section .lead {
   max-width: 620px;
   margin: 0 auto 2rem;
+  font-size: clamp(1.05rem, 2vw, 1.18rem);
+  line-height: 1.65;
+  text-wrap: balance;
 }
 
 footer {
-  background: var(--ev-secondary-bg) !important;
-  border-top: 1px solid var(--ev-border) !important;
+  background-color: var(--ev-pale-green) !important;
+  border-top: 1px solid rgba(78, 123, 99, 0.22) !important;
+  box-shadow: 0 -3px 16px rgba(38, 61, 48, 0.025);
 }
 
 @media (max-width: 991.98px) {
@@ -318,6 +426,10 @@ footer {
     padding-inline: 0.75rem;
   }
 
+  #app[data-page="index"] main {
+    min-height: calc(100svh - 64px - 57px);
+  }
+
   .navbar {
     min-height: 64px;
   }
@@ -328,5 +440,13 @@ footer {
 
   .hero-section h1 {
     font-size: clamp(2.25rem, 12vw, 3.25rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #page-content,
+  #page-content.ev-page-leaving {
+    animation: none;
+    transition: none;
   }
 }

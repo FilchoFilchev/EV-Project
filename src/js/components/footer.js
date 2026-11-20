@@ -1,6 +1,6 @@
 export function renderFooter() {
   document.querySelector('#footer').innerHTML = `
-    <footer class="border-top mt-auto py-4 bg-light">
+    <footer class="border-top mt-auto py-4">
       <div class="container d-flex flex-column flex-sm-row justify-content-between gap-2">
         <span class="text-secondary">&copy; ${new Date().getFullYear()} EchoVault</span>
         <div class="d-flex gap-3">
