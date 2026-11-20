@@ -22,7 +22,7 @@ export function renderNavbar(activePage) {
         </button>
         <div class="collapse navbar-collapse" id="main-navigation">
           <ul class="navbar-nav mx-lg-auto">${navLinks}</ul>
-          <div class="d-flex gap-2 mt-3 mt-lg-0">
+          <div class="navbar-auth-actions d-flex gap-2 mt-3 mt-lg-0">
             <a class="btn btn-outline-primary btn-sm" href="/login.html">Login</a>
             <a class="btn btn-primary btn-sm" href="/register.html">Register</a>
           </div>
