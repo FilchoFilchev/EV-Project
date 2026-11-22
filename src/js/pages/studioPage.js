@@ -15,13 +15,14 @@ import {
   uploadOriginalAudio,
 } from '../services/storageService.js'
 import { validateOriginalAudio } from '../utils/audioUploadValidation.js'
+import { getPremiumEligibility } from '../services/subscriptionService.js'
+import { saveEditedAudio } from '../services/editedVersionService.js'
 import { requireAuthentication } from '../utils/routeGuard.js'
 import { initPageTransitions } from '../utils/pageTransitions.js'
 
 renderNavbar('studio')
 renderFooter()
 initPageTransitions()
-requireAuthentication()
 
 const recordButton = document.querySelector('#record-button')
 const stopButton = document.querySelector('#stop-button')
@@ -38,6 +39,11 @@ const effectPreviewButton = document.querySelector('#effect-preview-button')
 const effectResetButton = document.querySelector('#effect-reset-button')
 const effectError = document.querySelector('#effect-error')
 const effectStatus = document.querySelector('#effect-status')
+const premiumStatus = document.querySelector('#premium-status')
+const premiumCheckButton = document.querySelector('#premium-check-button')
+const saveEditedButton = document.querySelector('#save-edited-button')
+const saveEditedStatus = document.querySelector('#save-edited-status')
+const saveEditedError = document.querySelector('#save-edited-error')
 const playbackSection = document.querySelector('#playback-section')
 const playbackSource = document.querySelector('#playback-source')
 const recordingStatus = document.querySelector('#recording-status')
@@ -58,6 +64,7 @@ const categoryError = document.querySelector('#recording-category-error')
 const recordingService = new RecordingService()
 const recordingSupport = getRecordingSupport()
 const audioPreviewEngine = createAudioPreviewEngine(audioPlayer)
+const offlineExportSupported = typeof (globalThis.OfflineAudioContext ?? globalThis.webkitOfflineAudioContext) === 'function'
 const effectCopy = {
   original: {
     name: 'Original',
@@ -94,6 +101,30 @@ let savingOriginal = false
 let originalSaved = false
 let saveOutcomeUncertain = false
 let appliedEffect = 'original'
+let premiumAccess = false
+let checkingPremium = false
+let savingEdited = false
+let editedOutcomeUncertain = false
+let savedRecordingId = null
+
+async function refreshPremiumAccess() {
+  if (checkingPremium || savingEdited) return
+  checkingPremium = true
+  premiumCheckButton.disabled = true
+  premiumStatus.textContent = 'Checking Premium access...'
+  try {
+    const result = await getPremiumEligibility()
+    premiumAccess = !result.error && result.premium
+    premiumStatus.textContent = result.error || (premiumAccess
+      ? 'Premium is active. Preview effects and save separate edited WAV versions.'
+      : 'Standard plan: original recording, playback, and saving are available. Effects and edited WAV saves require active Premium.')
+    if (!premiumAccess) resetEffectControls('Original audio is selected. Effects require active Premium.')
+  } finally {
+    checkingPremium = false
+    premiumCheckButton.disabled = false
+    updateEffectControls()
+  }
+}
 
 function showError(message) {
   errorMessage.textContent = message
@@ -118,6 +149,7 @@ async function handleEffectPreview() {
   }
 
   const effect = getSelectedEffect()
+  if (savingEdited || (effect !== 'original' && !premiumAccess)) return
   const intensity = Number(effectIntensity.value)
   clearEffectError()
 
@@ -219,25 +251,34 @@ function clearEffectError() {
 
 function updateEffectControls(state = recordingService.state) {
   const isBusy = ['requesting-permission', 'recording', 'processing'].includes(state)
-  const unavailable = !playbackAvailable || isBusy || savingOriginal
+  const unavailable = !playbackAvailable || isBusy || savingOriginal || savingEdited
   const selectedEffect = getSelectedEffect()
   const selectedEffectCopy = effectCopy[selectedEffect]
 
   effectInputs.forEach((input) => {
     input.disabled =
-      unavailable || (input.value !== 'original' && !audioPreviewEngine.supported)
+      unavailable || (input.value !== 'original' && (!audioPreviewEngine.supported || !premiumAccess))
   })
   effectIntensityLabel.textContent = selectedEffectCopy.intensityLabel
   effectIntensityHelp.textContent = selectedEffectCopy.intensityHelp
   effectIntensity.disabled =
-    unavailable || selectedEffect === 'original' || !audioPreviewEngine.supported
-  effectPreviewButton.disabled = unavailable
+    unavailable || selectedEffect === 'original' || !audioPreviewEngine.supported || !premiumAccess
+  effectPreviewButton.disabled = unavailable || (selectedEffect !== 'original' && !premiumAccess)
   effectPreviewButton.textContent = `Preview ${selectedEffectCopy.name}`
   effectResetButton.disabled =
     unavailable ||
     (selectedEffect === 'original' &&
       appliedEffect === 'original' &&
       Number(effectIntensity.value) === DEFAULT_MUFFLE_INTENSITY)
+  saveEditedButton.disabled = unavailable || !premiumAccess || !savedRecordingId ||
+    selectedEffect === 'original' || editedOutcomeUncertain ||
+    !offlineExportSupported
+  premiumCheckButton.disabled = checkingPremium || savingEdited || savingOriginal
+  if (!offlineExportSupported) {
+    saveEditedStatus.textContent = 'WAV export is not supported by this browser. Use a current browser to save edited versions.'
+  } else if (!savingEdited && !saveEditedStatus.textContent) {
+    saveEditedStatus.textContent = 'Save Original first, then choose an effect to save a separate private WAV.'
+  }
 }
 
 function resetEffectControls(message = 'Original audio is selected. Choose Preview Original to listen.') {
@@ -318,6 +359,11 @@ function releasePlaybackSource() {
   currentAudioBlob = null
   currentAudioDuration = null
   originalSaved = false
+  savedRecordingId = null
+  editedOutcomeUncertain = false
+  saveEditedStatus.textContent = ''
+  saveEditedError.textContent = ''
+  saveEditedError.hidden = true
   saveOutcomeUncertain = false
   resetEffectControls('Record or choose an audio file to preview an effect.')
   playbackSection.hidden = true
@@ -340,6 +386,7 @@ function updateSaveAvailability() {
 
   saveButton.disabled =
     savingOriginal ||
+    savingEdited ||
     originalSaved ||
     saveOutcomeUncertain ||
     !currentAudioBlob ||
@@ -416,10 +463,10 @@ function updatePlaybackButton() {
 
 function updateControls(state) {
   const isBusy = ['requesting-permission', 'recording', 'processing'].includes(state)
-  recordButton.disabled = !recordingSupport.supported || isBusy || savingOriginal
+  recordButton.disabled = !recordingSupport.supported || isBusy || savingOriginal || savingEdited
   stopButton.disabled = state !== 'recording'
-  fileInput.disabled = isBusy || savingOriginal
-  playbackButton.disabled = !playbackAvailable || isBusy || savingOriginal
+  fileInput.disabled = isBusy || savingOriginal || savingEdited
+  playbackButton.disabled = !playbackAvailable || isBusy || savingOriginal || savingEdited
   recordingVisual.classList.toggle('is-recording', state === 'recording')
   updateEffectControls(state)
 }
@@ -563,6 +610,7 @@ function validateSaveForm() {
 
 function markOriginalSaved(recording) {
   originalSaved = true
+  savedRecordingId = recording.id
   saveOutcomeUncertain = false
   clearSaveError()
   saveButton.disabled = true
@@ -620,7 +668,7 @@ async function reconcileFailedSave(storagePath, originalMessage, allowCleanup = 
 
 async function handleSaveOriginal(event) {
   event.preventDefault()
-  if (savingOriginal || originalSaved || saveOutcomeUncertain || !currentAudioBlob) {
+  if (savingOriginal || savingEdited || originalSaved || saveOutcomeUncertain || !currentAudioBlob) {
     return
   }
 
@@ -630,6 +678,7 @@ async function handleSaveOriginal(event) {
   }
 
   savingOriginal = true
+  updateControls(recordingService.state)
   saveButton.disabled = true
   saveStatus.classList.remove('text-success')
   saveStatus.classList.add('text-secondary')
@@ -682,6 +731,47 @@ async function handleSaveOriginal(event) {
   }
 }
 
+async function handleSaveEdited() {
+  if (saveEditedButton.disabled || savingEdited || !savedRecordingId || !premiumAccess) return
+  const sourceBlob = currentAudioBlob
+  savingEdited = true
+  audioPlayer.pause()
+  saveEditedError.hidden = true
+  saveEditedError.textContent = ''
+  saveEditedStatus.classList.remove('text-success')
+  updateControls(recordingService.state)
+  updateSaveAvailability()
+
+  try {
+    const result = await saveEditedAudio({
+      recordingId: savedRecordingId,
+      sourceBlob,
+      effectType: getSelectedEffect(),
+      intensity: Number(effectIntensity.value),
+      onProgress: (message) => { saveEditedStatus.textContent = message },
+    })
+    if (sourceBlob !== currentAudioBlob) return
+    if (result.error) {
+      editedOutcomeUncertain = Boolean(result.error.outcomeUnknown)
+      saveEditedError.textContent = result.error.message
+      saveEditedError.hidden = false
+      saveEditedStatus.textContent = editedOutcomeUncertain ? 'Check My Library before attempting another edited save.' : 'Your original remains saved. Review the error and try again.'
+      return
+    }
+    saveEditedStatus.replaceChildren(document.createTextNode('Edited WAV saved privately. '))
+    const link = document.createElement('a')
+    link.href = '/my-library.html#edited-versions'
+    link.textContent = 'Open Edited versions'
+    saveEditedStatus.append(link)
+    saveEditedStatus.classList.add('text-success')
+  } finally {
+    savingEdited = false
+    updateControls(recordingService.state)
+    updateSaveAvailability()
+    await refreshPremiumAccess()
+  }
+}
+
 async function handlePlaybackToggle() {
   if (!playbackAvailable) {
     return
@@ -730,6 +820,8 @@ function removePageListeners() {
   effectIntensity.removeEventListener('change', handleEffectIntensityChange)
   effectPreviewButton.removeEventListener('click', handleEffectPreview)
   effectResetButton.removeEventListener('click', handleEffectReset)
+  saveEditedButton.removeEventListener('click', handleSaveEdited)
+  premiumCheckButton.removeEventListener('click', refreshPremiumAccess)
 }
 
 function handleTitleInput() {
@@ -781,6 +873,8 @@ effectIntensity.addEventListener('input', handleEffectIntensityInput)
 effectIntensity.addEventListener('change', handleEffectIntensityChange)
 effectPreviewButton.addEventListener('click', handleEffectPreview)
 effectResetButton.addEventListener('click', handleEffectReset)
+saveEditedButton.addEventListener('click', handleSaveEdited)
+premiumCheckButton.addEventListener('click', refreshPremiumAccess)
 window.addEventListener('pagehide', handlePageHide)
 
 if (!recordingSupport.supported) {
@@ -790,3 +884,7 @@ if (!audioPreviewEngine.supported) {
   effectStatus.textContent =
     'Web Audio is unavailable in this browser. Original playback is still available.'
 }
+
+requireAuthentication().then((user) => {
+  if (user) refreshPremiumAccess()
+})

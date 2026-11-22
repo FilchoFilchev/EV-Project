@@ -10,11 +10,6 @@ function mapDatabaseError(error, outcomeUnknown = false) {
     return serviceError('You are not authorized to save or view this recording.', 'access_denied')
   }
 
-  function rpcOutcomeMayBeUnknown(error) {
-    const status = Number(error?.status)
-    return !(Number.isInteger(status) && status >= 400 && status < 500)
-  }
-
   if (error?.code === '23505') {
     return serviceError(
       'This recording already has an original version. Refresh your library before trying again.',
@@ -34,6 +29,11 @@ function mapDatabaseError(error, outcomeUnknown = false) {
     error?.code || 'database_error',
     outcomeUnknown
   )
+}
+
+function rpcOutcomeMayBeUnknown(error) {
+  const status = Number(error?.status)
+  return !(Number.isInteger(status) && status >= 400 && status < 500)
 }
 
 async function getAuthenticatedUser() {
@@ -240,5 +240,72 @@ export async function listMyOriginalRecordings() {
       recordings: null,
       error: serviceError('Your library could not be loaded. Check your connection and try again.', 'library_load_failed'),
     }
+  }
+}
+
+export async function findOwnedEditedVersionByPath(storagePath) {
+  const { user, error: userError } = await getAuthenticatedUser()
+  if (userError) return { version: null, error: userError }
+
+  try {
+    const { data, error } = await supabase
+      .from('voice_versions')
+      .select('id,recording_id,effect_type,effect_settings,storage_path,duration_seconds,mime_type,file_size_bytes,created_at,recording:voice_recordings!inner(id,owner_id,title,category)')
+      .eq('storage_path', storagePath)
+      .neq('effect_type', 'original')
+      .eq('recording.owner_id', user.id)
+      .maybeSingle()
+    return { version: data ?? null, error: error ? mapDatabaseError(error, true) : null }
+  } catch {
+    return { version: null, error: serviceError('The edited save could not be verified. Check My Library.', 'verification_failed', true) }
+  }
+}
+
+export async function createEditedVersion({ recordingId, storagePath, blob, durationSeconds, effectType, effectSettings }) {
+  const { user, error: userError } = await getAuthenticatedUser()
+  if (userError) return { version: null, error: userError }
+
+  const validated = validateOriginalAudio({ blob, durationSeconds, title: 'Edited version', category: 'Audio' })
+  if (validated.error || validated.mimeType !== 'audio/wav' ||
+      !/^[0-9a-f-]{36}$/i.test(recordingId ?? '') ||
+      typeof storagePath !== 'string' || !storagePath.startsWith(`${user.id}/`) ||
+      !['muffle', 'distortion', 'echo'].includes(effectType) ||
+      !Number.isInteger(effectSettings?.intensity) || effectSettings.intensity < 0 || effectSettings.intensity > 100) {
+    return { version: null, error: serviceError(validated.error || 'Choose a valid effect and rendered WAV before saving.', 'invalid_recording') }
+  }
+
+  try {
+    const { data, error } = await supabase.from('voice_versions').insert({
+      recording_id: recordingId,
+      effect_type: effectType,
+      effect_settings: effectSettings,
+      storage_path: storagePath,
+      duration_seconds: durationSeconds,
+      mime_type: 'audio/wav',
+      file_size_bytes: blob.size,
+    }).select('id,recording_id,effect_type,effect_settings,storage_path,duration_seconds,mime_type,file_size_bytes,created_at').single()
+
+    if (error) return { version: null, error: mapDatabaseError(error, rpcOutcomeMayBeUnknown(error)) }
+    if (!data?.id) return { version: null, error: serviceError('The edited save could not be confirmed. Check My Library.', 'verification_failed', true) }
+    return { version: data, error: null }
+  } catch {
+    return { version: null, error: serviceError('The edited save could not be confirmed. Check My Library.', 'network_outcome_unknown', true) }
+  }
+}
+
+export async function listMyEditedVersions() {
+  const { user, error: userError } = await getAuthenticatedUser()
+  if (userError) return { versions: null, error: userError }
+
+  try {
+    const { data, error } = await supabase
+      .from('voice_versions')
+      .select('id,recording_id,effect_type,effect_settings,storage_path,duration_seconds,mime_type,file_size_bytes,created_at,recording:voice_recordings!inner(id,owner_id,title,category,description,created_at)')
+      .eq('recording.owner_id', user.id)
+      .neq('effect_type', 'original')
+      .order('created_at', { ascending: false })
+    return { versions: data ?? [], error: error ? mapDatabaseError(error) : null }
+  } catch {
+    return { versions: null, error: serviceError('Your edited versions could not be loaded. Check your connection and try again.', 'library_load_failed') }
   }
 }

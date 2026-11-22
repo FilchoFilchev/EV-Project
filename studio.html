@@ -144,8 +144,12 @@
             <div class="card-body p-4">
               <h2 id="effects-heading" class="h6 mb-2">Audio effects</h2>
               <p class="text-secondary mb-4">
-                Preview Muffle, Distortion, or Echo locally. Your original audio remains unchanged and is not uploaded or replaced by these previews.
+                With Premium, preview Muffle, Distortion, or Echo and save an edited WAV. Your original audio remains unchanged.
               </p>
+              <div class="border rounded p-3 mb-3">
+                <p id="premium-status" class="small text-secondary mb-2" role="status" aria-live="polite">Checking Premium access...</p>
+                <button id="premium-check-button" class="btn btn-sm btn-outline-primary" type="button" disabled>Check Premium access</button>
+              </div>
               <fieldset class="studio-effect-options mb-3">
                 <legend class="form-label fw-semibold">Preview mode</legend>
                 <div class="d-flex flex-wrap gap-3">
@@ -227,7 +231,12 @@
                 <button id="effect-reset-button" class="btn btn-outline-secondary" type="button" disabled>
                   Reset
                 </button>
+                <button id="save-edited-button" class="btn btn-outline-primary" type="button" aria-describedby="save-edited-status" disabled>
+                  Save edited version (WAV)
+                </button>
               </div>
+              <p id="save-edited-status" class="small text-secondary mt-3 mb-0" role="status" aria-live="polite">Save Original first, then choose an effect to save a separate private WAV.</p>
+              <div id="save-edited-error" class="alert alert-danger mt-3 mb-0" role="alert" hidden></div>
             </div>
           </section>
         </div>

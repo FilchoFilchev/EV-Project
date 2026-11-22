@@ -16,23 +16,37 @@
         <header class="page-heading mb-4 mb-md-5">
           <p class="library-eyebrow mb-2">Your private collection</p>
           <h1 class="h2 mb-2">My Library</h1>
-          <p class="text-secondary mb-0">Your saved original recordings, stored privately and accessible only to you and authorized license holders.</p>
+          <p class="text-secondary mb-0">Your saved originals and edited versions, stored privately and accessible only to you and authorized license holders.</p>
         </header>
         <ul class="nav nav-tabs mb-0" role="tablist" aria-label="Library sections">
-          <li class="nav-item" role="presentation"><button class="nav-link active" id="original-recordings-tab" type="button" role="tab" aria-selected="true">Original recordings</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" aria-selected="false" disabled>Edited versions</button></li>
+          <li class="nav-item" role="presentation"><button class="nav-link active" id="original-recordings-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#original-recordings" aria-controls="original-recordings" aria-selected="true">Original recordings</button></li>
+          <li class="nav-item" role="presentation"><button class="nav-link" id="edited-versions-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#edited-versions" aria-controls="edited-versions" aria-selected="false" tabindex="-1">Edited versions</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" aria-selected="false" disabled>My listings</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" aria-selected="false" disabled>Acquired licenses</button></li>
         </ul>
-        <section class="library-panel border border-top-0 rounded-bottom p-3 p-md-4" aria-labelledby="original-recordings-tab">
-          <p id="library-status" class="text-secondary mb-3" role="status" aria-live="polite" aria-atomic="true">Loading your library...</p>
-          <div id="library-error" class="alert alert-danger" role="alert" hidden></div>
-          <div id="library-empty" class="library-empty text-center p-4 p-md-5" hidden>
-            <h2 class="h5 mb-2">Your library is ready for its first recording</h2>
-            <p class="text-secondary mb-3">Save an original from Voice Studio to keep it in your private collection.</p>
-            <a class="btn btn-primary" href="/studio.html">Open Voice Studio</a>
+        <div class="library-panel border border-top-0 rounded-bottom p-3 p-md-4">
+          <div class="tab-content">
+            <section id="original-recordings" class="tab-pane active" role="tabpanel" aria-labelledby="original-recordings-tab" tabindex="0">
+              <p id="library-status" class="text-secondary mb-3" role="status" aria-live="polite" aria-atomic="true">Loading your library...</p>
+              <div id="library-error" class="alert alert-danger" role="alert" hidden></div>
+              <div id="library-empty" class="library-empty text-center p-4 p-md-5" hidden>
+                <h2 class="h5 mb-2">Your library is ready for its first recording</h2>
+                <p class="text-secondary mb-3">Save an original from Voice Studio to keep it in your private collection.</p>
+                <a class="btn btn-primary" href="/studio.html">Open Voice Studio</a>
+              </div>
+              <div id="library-list" class="row g-3" aria-label="Original recordings"></div>
+            </section>
+            <section id="edited-versions" class="tab-pane" role="tabpanel" aria-labelledby="edited-versions-tab" tabindex="0">
+              <p id="edited-library-status" class="text-secondary mb-3" role="status" aria-live="polite" aria-atomic="true">Loading your edited versions...</p>
+              <div id="edited-library-error" class="alert alert-danger" role="alert" hidden></div>
+              <div id="edited-library-empty" class="library-empty text-center p-4 p-md-5" hidden>
+                <h2 class="h5 mb-2">No edited versions saved yet</h2>
+                <p class="text-secondary mb-3">With active Premium, save a Muffle, Distortion, or Echo version in Voice Studio. Your original stays separate.</p>
+                <a class="btn btn-primary" href="/studio.html">Open Voice Studio</a>
+              </div>
+              <div id="edited-library-list" class="row g-3" aria-label="Edited versions"></div>
+            </section>
           </div>
-          <div id="library-list" class="row g-3" aria-label="Original recordings"></div>
           <section id="library-playback" class="card library-playback mt-4" aria-labelledby="library-playback-heading" hidden>
             <div class="card-body">
               <h2 id="library-playback-heading" class="h6 mb-2">Private audio playback</h2>
@@ -41,7 +55,7 @@
             </div>
           </section>
           <p id="library-action-status" class="small text-secondary mt-3 mb-0" role="status" aria-live="polite" aria-atomic="true"></p>
-        </section>
+        </div>
       </main>
       <div id="footer"></div>
     </div>

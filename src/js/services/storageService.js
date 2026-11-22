@@ -139,6 +139,13 @@ export async function uploadOriginalAudio(blob, mimeType) {
   }
 }
 
+export async function uploadEditedAudio(blob) {
+  if (blob?.type !== 'audio/wav') {
+    return { path: null, error: serviceError('Edited audio must be a rendered WAV file.', 'invalid_audio') }
+  }
+  return uploadOriginalAudio(blob, 'audio/wav')
+}
+
 export async function removeUnreferencedAudio(path) {
   if (!supabase || typeof path !== 'string' || !path) {
     return {

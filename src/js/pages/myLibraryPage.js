@@ -2,7 +2,7 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import { renderNavbar } from '../components/navbar.js'
 import { renderFooter } from '../components/footer.js'
 import { downloadOriginalAudio } from '../services/storageService.js'
-import { listMyOriginalRecordings } from '../services/voiceRecordingService.js'
+import { listMyEditedVersions, listMyOriginalRecordings } from '../services/voiceRecordingService.js'
 import { normalizeAudioMimeType } from '../utils/audioUploadValidation.js'
 import { initPageTransitions } from '../utils/pageTransitions.js'
 import { requireAuthentication } from '../utils/routeGuard.js'
@@ -15,6 +15,10 @@ const libraryStatus = document.querySelector('#library-status')
 const libraryError = document.querySelector('#library-error')
 const libraryEmpty = document.querySelector('#library-empty')
 const libraryList = document.querySelector('#library-list')
+const editedLibraryStatus = document.querySelector('#edited-library-status')
+const editedLibraryError = document.querySelector('#edited-library-error')
+const editedLibraryEmpty = document.querySelector('#edited-library-empty')
+const editedLibraryList = document.querySelector('#edited-library-list')
 const playbackSection = document.querySelector('#library-playback')
 const playbackTitle = document.querySelector('#library-playback-title')
 const audioPlayer = document.querySelector('#library-audio')
@@ -23,6 +27,11 @@ const actionStatus = document.querySelector('#library-action-status')
 let activePlaybackUrl = null
 let activePlaybackId = null
 const downloadUrls = new Map()
+const effectNames = { muffle: 'Muffle', distortion: 'Distortion', echo: 'Echo' }
+
+if (window.location.hash === '#edited-versions') {
+  document.querySelector('#edited-versions-tab').click()
+}
 
 function showLibraryError(message) {
   libraryError.textContent = message
@@ -98,7 +107,7 @@ function trackDownloadUrl(url) {
   downloadUrls.set(url, timeoutId)
 }
 
-function createRecordingCard(recording) {
+function createRecordingCard(recording, version = recording.original, edited = false) {
   const column = document.createElement('div')
   column.className = 'col-12 col-md-6'
 
@@ -109,7 +118,9 @@ function createRecordingCard(recording) {
 
   const heading = document.createElement('h2')
   heading.className = 'h5 mb-2'
-  heading.textContent = recording.title
+  const effectName = effectNames[version?.effect_type] ?? 'Edited'
+  const audioTitle = edited ? `${recording.title} — ${effectName}` : recording.title
+  heading.textContent = audioTitle
 
   const category = document.createElement('p')
   category.className = 'small fw-semibold text-secondary mb-3'
@@ -118,20 +129,27 @@ function createRecordingCard(recording) {
   const details = document.createElement('dl')
   details.className = 'row small mb-3'
   const detailValues = [
-    ['Saved', formatDate(recording.created_at)],
+    ['Saved', formatDate(edited ? version.created_at : recording.created_at)],
     [
       'Duration',
-      recording.original
-        ? formatDuration(Number(recording.original.duration_seconds))
+      version
+        ? formatDuration(Number(version.duration_seconds))
         : 'Audio unavailable',
     ],
     [
       'File size',
-      recording.original
-        ? formatFileSize(Number(recording.original.file_size_bytes))
+      version
+        ? formatFileSize(Number(version.file_size_bytes))
         : 'Audio unavailable',
     ],
   ]
+  if (edited) {
+    detailValues.unshift(['Effect', effectName])
+    const intensity = version.effect_settings?.intensity
+    if (Number.isFinite(intensity) && intensity >= 0 && intensity <= 100) {
+      detailValues.push(['Intensity', `${intensity}%`])
+    }
+  }
 
   for (const [label, value] of detailValues) {
     const term = document.createElement('dt')
@@ -155,22 +173,23 @@ function createRecordingCard(recording) {
   const actions = document.createElement('div')
   actions.className = 'library-recording-actions d-flex flex-column flex-sm-row gap-2'
 
-  const hasAudioPath = Boolean(recording.original?.storage_path)
+  const audio = { ...version, title: audioTitle }
+  const hasAudioPath = Boolean(audio.storage_path)
   const playButton = document.createElement('button')
   playButton.className = 'btn btn-outline-primary'
   playButton.type = 'button'
   playButton.textContent = 'Play'
   playButton.disabled = !hasAudioPath
-  playButton.setAttribute('aria-label', `Play ${recording.title}`)
-  playButton.addEventListener('click', () => handlePlay(recording, playButton))
+  playButton.setAttribute('aria-label', `Play ${audioTitle}`)
+  playButton.addEventListener('click', () => handlePlay(audio, playButton))
 
   const downloadButton = document.createElement('button')
   downloadButton.className = 'btn btn-primary'
   downloadButton.type = 'button'
   downloadButton.textContent = 'Download'
   downloadButton.disabled = !hasAudioPath
-  downloadButton.setAttribute('aria-label', `Download ${recording.title}`)
-  downloadButton.addEventListener('click', () => handleDownload(recording, downloadButton))
+  downloadButton.setAttribute('aria-label', `Download ${audioTitle}`)
+  downloadButton.addEventListener('click', () => handleDownload(audio, downloadButton))
 
   actions.append(playButton, downloadButton)
   body.append(actions)
@@ -185,12 +204,22 @@ function renderRecordings(recordings) {
   libraryList.replaceChildren(fragment)
 }
 
+function renderEditedVersions(versions) {
+  const fragment = document.createDocumentFragment()
+  versions.forEach((version) => {
+    if (version.recording) {
+      fragment.append(createRecordingCard(version.recording, version, true))
+    }
+  })
+  editedLibraryList.replaceChildren(fragment)
+}
+
 async function getAudioBlob(recording) {
-  if (!recording.original?.storage_path) {
-    return { blob: null, error: { message: 'This recording has no available original audio.' } }
+  if (!recording.storage_path) {
+    return { blob: null, error: { message: 'This version has no available private audio.' } }
   }
 
-  return downloadOriginalAudio(recording.original.storage_path)
+  return downloadOriginalAudio(recording.storage_path)
 }
 
 async function handlePlay(recording, button) {
@@ -236,7 +265,7 @@ async function handlePlay(recording, button) {
   } catch {
     actionStatus.textContent = 'Private audio could not be loaded. Check your connection and try again.'
   } finally {
-    button.disabled = !recording.original?.storage_path
+    button.disabled = !recording.storage_path
   }
 }
 
@@ -255,7 +284,7 @@ async function handleDownload(recording, button) {
     trackDownloadUrl(url)
     const link = document.createElement('a')
     link.href = url
-    link.download = safeFileName(recording.title, recording.original.mime_type)
+    link.download = safeFileName(recording.title, recording.mime_type)
     link.hidden = true
     document.body.append(link)
     link.click()
@@ -264,7 +293,7 @@ async function handleDownload(recording, button) {
   } catch {
     actionStatus.textContent = 'Private audio could not be downloaded. Check your connection and try again.'
   } finally {
-    button.disabled = !recording.original?.storage_path
+    button.disabled = !recording.storage_path
   }
 }
 
@@ -272,9 +301,14 @@ async function loadLibrary() {
   const user = await requireAuthentication()
   if (!user) {
     libraryStatus.textContent = 'Sign in is required to view your library.'
+    editedLibraryStatus.textContent = 'Sign in is required to view your edited versions.'
     return
   }
 
+  await Promise.all([loadOriginalRecordings(), loadEditedVersions()])
+}
+
+async function loadOriginalRecordings() {
   const result = await listMyOriginalRecordings()
   if (result.error) {
     libraryStatus.textContent = ''
@@ -290,6 +324,25 @@ async function loadLibrary() {
     recordings.length > 0
       ? `${recordings.length} original recording${recordings.length === 1 ? '' : 's'} in your private library.`
       : ''
+}
+
+async function loadEditedVersions() {
+  const result = await listMyEditedVersions()
+  if (result.error) {
+    editedLibraryStatus.textContent = ''
+    editedLibraryError.textContent = result.error.message
+    editedLibraryError.hidden = false
+    return
+  }
+
+  editedLibraryError.textContent = ''
+  editedLibraryError.hidden = true
+  const versions = result.versions ?? []
+  renderEditedVersions(versions)
+  editedLibraryEmpty.hidden = versions.length > 0
+  editedLibraryStatus.textContent = versions.length > 0
+    ? `${versions.length} edited version${versions.length === 1 ? '' : 's'} in your private library.`
+    : ''
 }
 
 function handlePageHide(event) {
