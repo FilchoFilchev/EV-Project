@@ -37,3 +37,19 @@ Copy `.env.example` to `.env` and supply only the browser-safe Supabase values:
 
 Never place service-role, secret, JWT signing, or payment provider keys in
 `VITE_*` variables or in this repository.
+
+## Authentication
+
+Register and login use Supabase email/password authentication. Registration
+sends only the display name as user metadata; the database signup trigger
+creates the profile, default `user` role, and `free` subscription. Email
+confirmation behavior follows the Auth settings of the configured Supabase
+project, and the UI supports both confirmation-required and immediate-session
+signups.
+
+Protected pages verify the current Supabase user before revealing their
+content. The Admin page additionally reads the caller's role from `user_roles`;
+browser checks are only a navigation safeguard, while database RLS remains the
+authorization boundary. For local development, `.env.local` should point to
+`echovault-dev` and contain only `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_PUBLISHABLE_KEY`.

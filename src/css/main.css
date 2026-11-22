@@ -48,6 +48,10 @@ body {
   animation: ev-page-enter 220ms ease-in-out;
 }
 
+#app[data-auth-state="pending"] #page-content {
+  visibility: hidden;
+}
+
 #page-content.ev-page-leaving {
   animation: none;
   opacity: 0;

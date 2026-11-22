@@ -1,84 +1,98 @@
-import { supabase, configurationError } from '../config/supabaseClient.js'
-import { getSession, getCurrentUser } from '../services/authService.js'
+import {
+  getCurrentUser,
+  getCurrentUserRole,
+  subscribeToAuthState,
+} from '../services/authService.js'
 
 const loginUrl = '/login.html'
+let authWasSignedOut = false
+
+function setAuthPageState(state) {
+  const app = document.querySelector('#app')
+  if (app) {
+    app.dataset.authState = state
+  }
+}
 
 function showGuardMessage(message) {
   const pageContent = document.querySelector('#page-content')
-  if (!pageContent) {
-    return
+  if (pageContent) {
+    const container = document.createElement('div')
+    container.className = 'container py-5'
+
+    const alert = document.createElement('div')
+    alert.className = 'alert alert-warning'
+    alert.setAttribute('role', 'alert')
+    alert.textContent = message
+    container.append(alert)
+    pageContent.replaceChildren(container)
   }
 
-  pageContent.innerHTML = `
-    <div class="container py-5">
-      <div class="alert alert-warning" role="alert">
-        ${message}
-      </div>
-    </div>
-  `
+  setAuthPageState('ready')
 }
 
-function redirectToLogin(returnUrl = window.location.pathname) {
-  const params = new URLSearchParams({ redirect: returnUrl })
+function redirectToLogin() {
+  const returnDestination =
+    `${window.location.pathname}${window.location.search}${window.location.hash}`
+  const params = new URLSearchParams({ redirect: returnDestination })
   window.location.replace(`${loginUrl}?${params}`)
 }
 
-export async function requireAuthentication(options = {}) {
-  if (!supabase) {
-    showGuardMessage(
-      options.configurationError ?? configurationError ??
-        'Supabase is not configured. This protected page cannot be accessed until configuration is available.'
-    )
+export async function requireAuthentication({ deferReveal = false } = {}) {
+  authWasSignedOut = false
+  setAuthPageState('pending')
+
+  subscribeToAuthState(({ event }) => {
+    if (event === 'SIGNED_OUT') {
+      authWasSignedOut = true
+      setAuthPageState('pending')
+      window.location.replace(loginUrl)
+    }
+  })
+
+  const { user, error } = await getCurrentUser()
+  if (authWasSignedOut) {
     return null
   }
-
-  const { session, error } = await getSession()
 
   if (error) {
     showGuardMessage('Unable to verify your session with Supabase Auth. Please try again.')
     return null
   }
 
-  if (!session) {
+  if (!user) {
     redirectToLogin()
     return null
   }
 
-  const { user, error: userError } = await getCurrentUser()
-
-  if (userError || !user) {
-    showGuardMessage('Unable to verify your authenticated session. Please sign in again.')
-    return null
+  if (!deferReveal) {
+    setAuthPageState('ready')
   }
 
   return user
 }
 
-export async function requireAdmin(options = {}) {
-  const user = await requireAuthentication(options)
+export async function requireAdmin() {
+  const user = await requireAuthentication({ deferReveal: true })
   if (!user) {
     return null
   }
 
-  if (typeof options.adminCheck !== 'function') {
-    showGuardMessage(
-      'Admin permissions have not been verified yet. Database role verification is required before accessing this page.'
-    )
+  const { role, error } = await getCurrentUserRole()
+  if (authWasSignedOut) {
     return null
   }
 
-  let isAdmin = false
-  try {
-    isAdmin = await options.adminCheck(user)
-  } catch {
-    showGuardMessage('Unable to verify admin permissions. Please try again.')
+  if (error) {
+    showGuardMessage('Unable to verify your database role. Please try again.')
     return null
   }
 
-  if (!isAdmin) {
+  if (role !== 'admin') {
     showGuardMessage('You do not have permission to access the Admin area.')
     return null
   }
 
+  setAuthPageState('ready')
   return user
 }
