@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const developmentProjectRef = 'zysyghbbbesatbehravb';
 const results = [];
 const retainedStoragePaths = new Set();
 const pendingStorageCleanupPaths = new Set();
@@ -59,7 +60,7 @@ function trackStorageTestPath(path) {
   console.log(`echovault-dev Storage test path: ${path}`);
 }
 
-function makeWavFixture(sampleValue = 0) {
+function makeWavFixture(sampleValue = 0, mimeType = 'audio/wav') {
   const sampleRate = 8000;
   const dataSize = sampleRate * 2 * 1.25;
   const buffer = Buffer.alloc(44 + dataSize, sampleValue);
@@ -76,7 +77,7 @@ function makeWavFixture(sampleValue = 0) {
   buffer.writeUInt16LE(16, 34);
   buffer.write('data', 36);
   buffer.writeUInt32LE(dataSize, 40);
-  return new Blob([buffer], { type: 'audio/wav' });
+  return new Blob([buffer], { type: mimeType });
 }
 
 function makeOversizedAudioFixture() {
@@ -189,31 +190,35 @@ async function confirmDevelopmentTarget() {
   try {
     appEnv = await readFile(path.join(projectRoot, '.env.local'), 'utf8');
   } catch {
-    throw new CheckFailure('Cannot verify the test URL differs from the app project: .env.local is unavailable.');
+    throw new CheckFailure('Cannot verify the configured development project: .env.local is unavailable.');
   }
   const appUrlValue = parseEnvValue(appEnv, 'VITE_SUPABASE_URL');
   if (!appUrlValue) {
-    throw new CheckFailure('Cannot verify the test URL differs from the app project: VITE_SUPABASE_URL is missing.');
+    throw new CheckFailure('Cannot verify the configured development project: VITE_SUPABASE_URL is missing.');
   }
   const appUrl = parseProjectUrl(appUrlValue);
-  if (testUrl.origin === appUrl.origin) {
-    throw new CheckFailure('The test URL matches the app project URL; refusing to connect.');
+  const testProjectRef = testUrl.hostname.split('.')[0];
+  const appProjectRef = appUrl.hostname.split('.')[0];
+  if (testProjectRef !== developmentProjectRef || appProjectRef !== developmentProjectRef) {
+    throw new CheckFailure('The app and test URLs must both target the configured echovault-dev project.');
   }
 
-  const projectRef = testUrl.hostname.split('.')[0];
-  console.log(`Target project reference: ${projectRef}`);
-  console.log('Verify that this reference belongs to echovault-dev, not the primary project.');
+  console.log(`Verified echovault-dev project reference: ${testProjectRef}`);
   console.log('This run creates private recording and Storage fixtures that ordinary clients cannot delete while referenced.');
-  if (!process.stdin.isTTY) {
-    throw new CheckFailure('Interactive echovault-dev confirmation is required; no network request was made.');
-  }
-
-  const terminal = createInterface({ input: process.stdin, output: process.stdout });
   let confirmation;
-  try {
-    confirmation = await terminal.question('Type echovault-dev to continue: ');
-  } finally {
-    terminal.close();
+  if (process.stdin.isTTY) {
+    const terminal = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      confirmation = await terminal.question('Type echovault-dev to continue: ');
+    } finally {
+      terminal.close();
+    }
+  } else if (process.argv.includes('--confirm-echovault-dev')) {
+    confirmation = 'echovault-dev';
+  } else {
+    throw new CheckFailure(
+      'Use an interactive echovault-dev confirmation or the explicit --confirm-echovault-dev flag; no network request was made.'
+    );
   }
   if (confirmation.trim() !== 'echovault-dev') {
     throw new CheckFailure('Development-project confirmation did not match; no network request was made.');
@@ -977,14 +982,19 @@ async function main() {
       if (!storageFixture) return skip('The User A private original fixture was not created.');
 
       const anonymousPath = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(anonymousPath);
       const upload = await anonymousClient.storage.from('voice-files').upload(
         anonymousPath,
         makeWavFixture(),
         { contentType: 'audio/wav', upsert: false },
       );
       if (!isStorageDenial(upload.error)) {
+        if (!upload.error) {
+          await removeConfirmedUnreferencedAudio(clientA, anonymousPath);
+        }
         throw new CheckFailure('Anonymous Storage upload was not denied.');
       }
+      pendingStorageCleanupPaths.delete(anonymousPath);
 
       const download = await anonymousClient.storage
         .from('voice-files')
@@ -997,10 +1007,9 @@ async function main() {
     await runTest('Unsupported MIME uploads are denied', async () => {
       const path = `${userA.id}/${randomUUID()}.wav`;
       trackStorageTestPath(path);
-      const upload = await clientA.storage.from('voice-files').upload(path, makeWavFixture(), {
-        contentType: 'audio/aac',
-        upsert: false,
-      });
+      const upload = await clientA.storage
+        .from('voice-files')
+        .upload(path, makeWavFixture(0, 'audio/aac'), { upsert: false });
       const status = Number(upload.error?.status ?? upload.error?.statusCode);
       if (!upload.error || status !== 400) {
         await removeConfirmedUnreferencedAudio(clientA, path);
@@ -1012,10 +1021,9 @@ async function main() {
     await runTest('MIME and extension mismatches are denied', async () => {
       const path = `${userA.id}/${randomUUID()}.wav`;
       trackStorageTestPath(path);
-      const upload = await clientA.storage.from('voice-files').upload(path, makeWavFixture(), {
-        contentType: 'audio/mpeg',
-        upsert: false,
-      });
+      const upload = await clientA.storage
+        .from('voice-files')
+        .upload(path, makeWavFixture(0, 'audio/mpeg'), { upsert: false });
       const status = Number(upload.error?.status ?? upload.error?.statusCode);
       if (![400, 403].includes(status)) {
         await removeConfirmedUnreferencedAudio(clientA, path);

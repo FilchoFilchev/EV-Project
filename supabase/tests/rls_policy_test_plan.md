@@ -61,6 +61,10 @@ for User A before testing.
 The JavaScript API test uses the disposable standard User B account as the
 fixture seller and User A as the buyer. It expects one marker-specific
 published listing, one draft, and one archived listing. To prepare them:
+The API credentials in `.env.rls-test.local` may identify a dedicated pair
+different from the seven email-named accounts used by `rls_policies.sql`.
+The fixed buyer/seller UUIDs in the API fixture setup and cleanup files must
+match the API Auth sessions; the SQL RLS suite resolves its own users by email.
 
 1. In Supabase Dashboard, select **echovault-dev** and verify its project
    reference matches the project reference in
@@ -111,14 +115,18 @@ Never use the cleanup process against production.
 Run the real-session API test from the repository root in PowerShell:
 
 ```powershell
-node --env-file=.\supabase\tests\.env.rls-test.local .\scripts\verify-rls-api.mjs
+node --env-file=.\supabase\tests\.env.rls-test.local .\scripts\verify-rls-api.mjs --confirm-echovault-dev
 ```
 
 The script requires the interactive `echovault-dev` confirmation before
-network requests. A missing fixture is reported as `SKIP`, not `PASS`.
+network requests. In a non-interactive runner, the explicit
+`--confirm-echovault-dev` flag is accepted only after both configured URLs
+match the verified echovault-dev project reference. A missing fixture is
+reported as `SKIP`, not `PASS`.
 With the new private-audio migration applied to echovault-dev, standard
 User A/User B accounts, User A on the free plan, and all three SQL fixtures
-present, the expected result is 31 passed, 0 failed, 0 skipped.
+present, the expected result is 32 passed, 0 failed, 0 skipped: 31 required
+API checks plus the separate successful sign-in check.
 
 ## Frontend column contract
 
