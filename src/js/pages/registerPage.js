@@ -3,6 +3,10 @@ import { renderNavbar } from '../components/navbar.js'
 import { renderFooter } from '../components/footer.js'
 import { initPageTransitions } from '../utils/pageTransitions.js'
 import { signUp } from '../services/authService.js'
+import {
+  INVALID_PUBLIC_EMAIL_MESSAGE,
+  normalizePublicEmail,
+} from '../utils/emailValidator.js'
 
 renderNavbar('register')
 renderFooter()
@@ -13,12 +17,14 @@ const registerPanel = document.querySelector('#register-panel')
 const message = document.querySelector('#register-message')
 const submitButton = form.querySelector('button[type="submit"]')
 const submitLabel = submitButton.textContent
+let submissionPending = false
 
 function showMessage(text, type) {
   message.hidden = false
   message.className = `alert alert-${type} mb-0`
-  message.setAttribute('role', type === 'danger' ? 'alert' : 'status')
-  message.setAttribute('aria-live', type === 'danger' ? 'assertive' : 'polite')
+  const isAlert = type === 'danger' || type === 'warning'
+  message.setAttribute('role', isAlert ? 'alert' : 'status')
+  message.setAttribute('aria-live', isAlert ? 'assertive' : 'polite')
   message.textContent = text
 }
 
@@ -91,6 +97,7 @@ function setFieldError(name, text = '') {
 function validateForm() {
   const displayName = form.elements.namedItem('displayName').value.trim()
   const email = form.elements.namedItem('email')
+  const normalizedEmail = normalizePublicEmail(email.value)
   const password = form.elements.namedItem('password').value
   const confirmPassword = form.elements.namedItem('confirmPassword').value
   const rightsConfirmation = form.elements.namedItem('rightsConfirmation')
@@ -102,8 +109,8 @@ function validateForm() {
         : '',
     email: !email.value.trim()
       ? 'Enter your email address.'
-      : email.validity.typeMismatch
-        ? 'Enter a valid email address.'
+      : email.validity.typeMismatch || email.validity.tooLong || normalizedEmail.error
+        ? INVALID_PUBLIC_EMAIL_MESSAGE
         : '',
     password: !password
       ? 'Enter a password.'
@@ -128,7 +135,8 @@ function validateForm() {
     return null
   }
 
-  return { displayName, email: email.value.trim(), password }
+  email.value = normalizedEmail.email
+  return { displayName, email: normalizedEmail.email, password }
 }
 
 function setSubmitting(submitting) {
@@ -166,27 +174,57 @@ form.addEventListener('change', (event) => {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault()
-  clearMessage()
-
-  const values = validateForm()
-  if (!values || form.getAttribute('aria-busy') === 'true') {
+  if (submissionPending) {
     return
   }
 
+  clearMessage()
+
+  const values = validateForm()
+  if (!values) {
+    return
+  }
+
+  submissionPending = true
   setSubmitting(true)
 
-  const result = await signUp(values)
-
-  setSubmitting(false)
+  let result
+  try {
+    result = await signUp(values)
+  } finally {
+    submissionPending = false
+    setSubmitting(false)
+  }
 
   if (result.error) {
+    if (result.error.code === 'email_address_invalid') {
+      setFieldError('email', result.error.message)
+      form.elements.namedItem('email').focus()
+      return
+    }
+
     if (result.error.code === 'weak_password') {
       setFieldError('password', result.error.message)
       form.elements.namedItem('password').focus()
     }
+
+    const messageType =
+      result.error.code === 'email_exists' || result.error.code === 'user_already_exists'
+        ? 'secondary'
+        : [
+              'over_email_send_rate_limit',
+              'over_request_rate_limit',
+              'email_address_not_authorized',
+              'auth_request_limited',
+              'auth_service_unavailable',
+              'network_error',
+            ].includes(result.error.code)
+          ? 'warning'
+          : 'danger'
+
     showMessage(
       result.error.message,
-      result.error.code === 'duplicate_account' ? 'info' : 'danger'
+      messageType
     )
     return
   }

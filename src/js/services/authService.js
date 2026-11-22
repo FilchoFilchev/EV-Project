@@ -9,64 +9,100 @@ const protectedPages = new Set([
   '/admin.html',
 ])
 
-function authFailure(message, code = 'auth_error') {
-  return { code, message }
+function authFailure(message, code = 'auth_error', status = null) {
+  return { code, message, status }
 }
 
 function mapAuthError(error, operation) {
-  const code = String(error?.code ?? '').toLowerCase()
-  const message = String(error?.message ?? '').toLowerCase()
+  const code = typeof error?.code === 'string' ? error.code.toLowerCase() : ''
+  const status =
+    error?.status == null || !Number.isFinite(Number(error.status))
+      ? null
+      : Number(error.status)
 
-  if (
-    operation === 'signUp' &&
-    (/already (registered|exists)|user exists|duplicate/.test(message) ||
-      code === 'user_already_exists')
-  ) {
+  switch (code) {
+    case 'over_email_send_rate_limit':
+      return authFailure(
+        "We've reached our email verification limit. Please try again later or sign in if you already have an account.",
+        code,
+        status
+      )
+    case 'over_request_rate_limit':
+      return authFailure(
+        'Too many requests have been made. Please try again later.',
+        code,
+        status
+      )
+    case 'email_address_invalid':
+      return authFailure(
+        'Please enter a valid email address and check for typing mistakes.',
+        code,
+        status
+      )
+    case 'email_address_not_authorized':
+      return authFailure(
+        'The development email service can send verification messages only to authorized project-team addresses. Please use an authorized test address or contact the project administrator.',
+        code,
+        status
+      )
+    case 'email_exists':
+    case 'user_already_exists':
+      if (operation === 'signUp') {
+        return authFailure(
+          'We could not complete registration. If you already have an account, sign in instead; otherwise, check your details and try again.',
+          code,
+          status
+        )
+      }
+      break
+    case 'weak_password':
+      return authFailure(
+        'Choose a password with at least 8 characters that meets the project password requirements.',
+        code,
+        status
+      )
+    case 'email_not_confirmed':
+      return authFailure(
+        'Please confirm your email using the link in your inbox, then try signing in again.',
+        code,
+        status
+      )
+    case 'invalid_credentials':
+      if (operation === 'signIn') {
+        return authFailure(
+          'Email or password is incorrect. If you just registered, confirm your email first.',
+          code,
+          status
+        )
+      }
+      break
+  }
+
+  if (status === 429) {
     return authFailure(
-      'We could not complete registration. If you already have an account, sign in instead; otherwise, check your details and try again.',
-      'duplicate_account'
+      'The authentication service is temporarily limiting this request. Please wait and try again.',
+      'auth_request_limited',
+      status
+    )
+  }
+
+  if (status !== null && status >= 500) {
+    return authFailure(
+      'The authentication service is temporarily unavailable. Please try again later.',
+      'auth_service_unavailable',
+      status
     )
   }
 
   if (
-    code === 'weak_password' ||
-    /password.{0,30}(weak|short|requirements|least)|minimum.{0,20}password/.test(message)
+    error?.name === 'AuthRetryableFetchError' ||
+    error instanceof TypeError ||
+    status === 0
   ) {
     return authFailure(
-      'Choose a password with at least 8 characters that meets the project password requirements.',
-      'weak_password'
-    )
-  }
-
-  if (
-    code === 'email_not_confirmed' ||
-    message.includes('email not confirmed') ||
-    message.includes('email_not_confirmed')
-  ) {
-    return authFailure(
-      'Please confirm your email using the link in your inbox, then try signing in again.',
-      'email_not_confirmed'
-    )
-  }
-
-  if (
-    code.includes('rate_limit') ||
-    code === 'over_request_rate_limit' ||
-    message.includes('rate limit') ||
-    message.includes('too many requests')
-  ) {
-    return authFailure('Too many attempts. Please wait a moment and try again.', 'rate_limit')
-  }
-
-  if (
-    operation === 'signIn' &&
-    (code === 'invalid_credentials' ||
-      message.includes('invalid login credentials') ||
-      message.includes('invalid email or password'))
-  ) {
-    return authFailure(
-      'Email or password is incorrect. If you just registered, confirm your email first.',
-      'invalid_credentials'
+      'We could not reach the authentication service. Check your connection and try again.',
+      'network_error',
+      status
     )
   }
 
@@ -76,7 +112,8 @@ function mapAuthError(error, operation) {
       : operation === 'signIn'
         ? 'Unable to sign in right now. Please try again.'
         : 'Supabase Auth is unavailable. Please try again.',
-    code || 'auth_error'
+    code || 'auth_error',
+    status
   )
 }
 
