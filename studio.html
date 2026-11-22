@@ -140,14 +140,74 @@
             </div>
           </section>
 
-          <aside class="card studio-card studio-effects" aria-labelledby="effects-heading">
+          <section class="card studio-card studio-effects" aria-labelledby="effects-heading">
             <div class="card-body p-4">
               <h2 id="effects-heading" class="h6 mb-2">Audio effects</h2>
-              <p class="text-secondary mb-0">
-                Muffle, Distortion, and Echo controls are planned for a later implementation step.
+              <p class="text-secondary mb-4">
+                Preview a low-pass Muffle effect locally. Your original audio remains unchanged and is not uploaded or replaced by this preview.
               </p>
+              <fieldset class="studio-effect-options mb-3">
+                <legend class="form-label fw-semibold">Preview mode</legend>
+                <div class="d-flex flex-wrap gap-3">
+                  <div class="form-check">
+                    <input
+                      id="effect-original"
+                      class="form-check-input"
+                      type="radio"
+                      name="studio-effect"
+                      value="original"
+                      checked
+                      disabled
+                    />
+                    <label class="form-check-label" for="effect-original">Original</label>
+                  </div>
+                  <div class="form-check">
+                    <input
+                      id="effect-muffle"
+                      class="form-check-input"
+                      type="radio"
+                      name="studio-effect"
+                      value="muffle"
+                      disabled
+                    />
+                    <label class="form-check-label" for="effect-muffle">Muffle</label>
+                  </div>
+                </div>
+              </fieldset>
+              <div class="studio-intensity-control mb-3">
+                <label class="form-label fw-semibold d-flex justify-content-between" for="muffle-intensity">
+                  <span>Muffle intensity</span>
+                  <output id="muffle-intensity-value" for="muffle-intensity">50%</output>
+                </label>
+                <input
+                  id="muffle-intensity"
+                  class="form-range"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="50"
+                  aria-describedby="muffle-intensity-help"
+                  disabled
+                />
+                <p id="muffle-intensity-help" class="form-text mb-0">
+                  Higher intensity lowers the filter cutoff and softens more high frequencies.
+                </p>
+              </div>
+              <div id="effect-error" class="alert alert-danger py-2" role="alert" hidden></div>
+              <p id="effect-status" class="small text-secondary mb-3" role="status" aria-live="polite" aria-atomic="true">
+                Record or choose an audio file to preview an effect.
+              </p>
+              <div class="studio-effect-actions d-flex flex-wrap gap-2">
+                <button id="effect-preview-button" class="btn btn-primary" type="button" disabled>
+                  Preview Original
+                </button>
+                <button id="effect-reset-button" class="btn btn-outline-secondary" type="button" disabled>
+                  Reset
+                </button>
+              </div>
             </div>
-          </aside>
+          </section>
         </div>
       </main>
       <div id="footer"></div>

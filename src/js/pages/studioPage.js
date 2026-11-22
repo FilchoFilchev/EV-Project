@@ -1,6 +1,10 @@
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import { renderNavbar } from '../components/navbar.js'
 import { renderFooter } from '../components/footer.js'
+import {
+  createAudioPreviewEngine,
+  DEFAULT_MUFFLE_INTENSITY,
+} from '../services/audioEngine.js'
 import { RecordingService, getRecordingSupport } from '../services/recordingService.js'
 import {
   createOriginalRecording,
@@ -24,6 +28,14 @@ const stopButton = document.querySelector('#stop-button')
 const playbackButton = document.querySelector('#playback-toggle')
 const fileInput = document.querySelector('#audio-file')
 const audioPlayer = document.querySelector('#studio-audio')
+const effectInputs = [...document.querySelectorAll('input[name="studio-effect"]')]
+const originalEffectInput = document.querySelector('#effect-original')
+const muffleIntensity = document.querySelector('#muffle-intensity')
+const muffleIntensityValue = document.querySelector('#muffle-intensity-value')
+const effectPreviewButton = document.querySelector('#effect-preview-button')
+const effectResetButton = document.querySelector('#effect-reset-button')
+const effectError = document.querySelector('#effect-error')
+const effectStatus = document.querySelector('#effect-status')
 const playbackSection = document.querySelector('#playback-section')
 const playbackSource = document.querySelector('#playback-source')
 const recordingStatus = document.querySelector('#recording-status')
@@ -43,6 +55,7 @@ const titleError = document.querySelector('#recording-title-error')
 const categoryError = document.querySelector('#recording-category-error')
 const recordingService = new RecordingService()
 const recordingSupport = getRecordingSupport()
+const audioPreviewEngine = createAudioPreviewEngine(audioPlayer)
 
 let recordingInterval = null
 let recordingStartedAt = null
@@ -56,10 +69,91 @@ let currentAudioDuration = null
 let savingOriginal = false
 let originalSaved = false
 let saveOutcomeUncertain = false
+let appliedEffect = 'original'
 
 function showError(message) {
   errorMessage.textContent = message
   errorMessage.hidden = false
+}
+
+function handlePlaybackStarted() {
+  updatePlaybackButton()
+  if (!audioPreviewEngine.connected) {
+    return
+  }
+
+  audioPreviewEngine.resume().catch(() => {
+    audioPlayer.pause()
+    showEffectError('Audio preview could not resume. Choose Preview to try again.')
+  })
+}
+
+async function handleEffectPreview() {
+  if (!playbackAvailable || !hasActivePlaybackSource()) {
+    return
+  }
+
+  const effect = getSelectedEffect()
+  const intensity = Number(muffleIntensity.value)
+  clearEffectError()
+
+  try {
+    await audioPreviewEngine.apply(effect, intensity)
+    appliedEffect = effect
+    audioPlayer.currentTime = 0
+    await audioPlayer.play()
+    effectStatus.textContent =
+      effect === 'muffle'
+        ? `Playing a local Muffle preview at ${intensity}% intensity. The original is unchanged.`
+        : 'Playing the original audio. No effect is applied.'
+  } catch {
+    showEffectError(
+      'The preview could not start. Check browser audio permissions and try again. Your original audio is unchanged.'
+    )
+  } finally {
+    updateEffectControls()
+  }
+}
+
+function handleEffectReset() {
+  audioPlayer.pause()
+  if (hasActivePlaybackSource()) {
+    audioPlayer.currentTime = 0
+  }
+
+  resetEffectControls('Original audio restored. Choose Preview Original to listen.')
+}
+
+function handleEffectSelectionChange() {
+  clearEffectError()
+  effectStatus.textContent =
+    getSelectedEffect() === 'muffle'
+      ? 'Muffle is selected. Choose Preview Muffle to hear it; the original remains unchanged.'
+      : appliedEffect === 'muffle'
+        ? 'Original is selected. Choose Preview Original or Reset to hear the unfiltered audio.'
+        : 'Original audio is selected. Choose Preview Original to listen.'
+  updateEffectControls()
+}
+
+function handleMuffleIntensityInput() {
+  const intensity = Number(muffleIntensity.value)
+  muffleIntensityValue.value = `${intensity}%`
+  muffleIntensityValue.textContent = `${intensity}%`
+
+  if (appliedEffect === 'muffle') {
+    try {
+      audioPreviewEngine.setIntensity(intensity)
+    } catch {
+      showEffectError('Muffle intensity could not be updated. Reset the preview and try again.')
+    }
+  }
+}
+
+function handleMuffleIntensityChange() {
+  if (appliedEffect === 'muffle') {
+    effectStatus.textContent =
+      `Muffle preview set to ${Number(muffleIntensity.value)}% intensity.`
+  }
 }
 
 function clearError() {
@@ -82,6 +176,55 @@ function setSaveStatus(message, success = false) {
   saveStatus.replaceChildren(document.createTextNode(message))
   saveStatus.classList.toggle('text-success', success)
   saveStatus.classList.toggle('text-secondary', !success)
+}
+
+function getSelectedEffect() {
+  return effectInputs.find((input) => input.checked)?.value ?? 'original'
+}
+
+function showEffectError(message) {
+  effectError.textContent = message
+  effectError.hidden = false
+}
+
+function clearEffectError() {
+  effectError.textContent = ''
+  effectError.hidden = true
+}
+
+function updateEffectControls(state = recordingService.state) {
+  const isBusy = ['requesting-permission', 'recording', 'processing'].includes(state)
+  const unavailable = !playbackAvailable || isBusy || savingOriginal
+  const selectedEffect = getSelectedEffect()
+
+  effectInputs.forEach((input) => {
+    input.disabled =
+      unavailable || (input.value === 'muffle' && !audioPreviewEngine.supported)
+  })
+  muffleIntensity.disabled =
+    unavailable || selectedEffect !== 'muffle' || !audioPreviewEngine.supported
+  effectPreviewButton.disabled = unavailable
+  effectPreviewButton.textContent =
+    selectedEffect === 'muffle' ? 'Preview Muffle' : 'Preview Original'
+  effectResetButton.disabled =
+    unavailable ||
+    (selectedEffect === 'original' &&
+      appliedEffect === 'original' &&
+      Number(muffleIntensity.value) === DEFAULT_MUFFLE_INTENSITY)
+}
+
+function resetEffectControls(message = 'Original audio is selected. Choose Preview Original to listen.') {
+  audioPreviewEngine.reset()
+  appliedEffect = 'original'
+  originalEffectInput.checked = true
+  muffleIntensity.value = String(DEFAULT_MUFFLE_INTENSITY)
+  muffleIntensityValue.value = `${DEFAULT_MUFFLE_INTENSITY}%`
+  muffleIntensityValue.textContent = `${DEFAULT_MUFFLE_INTENSITY}%`
+  clearEffectError()
+  effectStatus.textContent = audioPreviewEngine.supported
+    ? message
+    : 'Web Audio is unavailable in this browser. Original playback is still available.'
+  updateEffectControls()
 }
 
 function formatTime(milliseconds) {
@@ -149,6 +292,7 @@ function releasePlaybackSource() {
   currentAudioDuration = null
   originalSaved = false
   saveOutcomeUncertain = false
+  resetEffectControls('Record or choose an audio file to preview an effect.')
   playbackSection.hidden = true
   saveSection.hidden = true
   playbackButton.disabled = true
@@ -219,6 +363,7 @@ function setPlaybackReady() {
       ? audioPlayer.duration
       : null
   updateSaveAvailability()
+  updateEffectControls()
   clearError()
 }
 
@@ -249,6 +394,7 @@ function updateControls(state) {
   fileInput.disabled = isBusy || savingOriginal
   playbackButton.disabled = !playbackAvailable || isBusy || savingOriginal
   recordingVisual.classList.toggle('is-recording', state === 'recording')
+  updateEffectControls(state)
 }
 
 function handleRecordingState(snapshot) {
@@ -548,10 +694,15 @@ function removePageListeners() {
   categoryInput.removeEventListener('input', handleCategoryInput)
   audioPlayer.removeEventListener('canplay', setPlaybackReady)
   audioPlayer.removeEventListener('loadedmetadata', setPlaybackReady)
-  audioPlayer.removeEventListener('play', updatePlaybackButton)
+  audioPlayer.removeEventListener('play', handlePlaybackStarted)
   audioPlayer.removeEventListener('pause', updatePlaybackButton)
   audioPlayer.removeEventListener('ended', updatePlaybackButton)
   audioPlayer.removeEventListener('error', handlePlaybackError)
+  effectInputs.forEach((input) => input.removeEventListener('change', handleEffectSelectionChange))
+  muffleIntensity.removeEventListener('input', handleMuffleIntensityInput)
+  muffleIntensity.removeEventListener('change', handleMuffleIntensityChange)
+  effectPreviewButton.removeEventListener('click', handleEffectPreview)
+  effectResetButton.removeEventListener('click', handleEffectReset)
 }
 
 function handleTitleInput() {
@@ -575,6 +726,12 @@ function handlePageHide(event) {
 
   releasePlaybackSource()
   fileInput.value = ''
+
+  if (!event.persisted) {
+    audioPreviewEngine.dispose().catch(() => {
+      console.error('The Studio audio preview could not release its Web Audio resources.')
+    })
+  }
 }
 
 const unsubscribeRecording = recordingService.subscribe(handleRecordingState)
@@ -588,12 +745,21 @@ titleInput.addEventListener('input', handleTitleInput)
 categoryInput.addEventListener('input', handleCategoryInput)
 audioPlayer.addEventListener('canplay', setPlaybackReady)
 audioPlayer.addEventListener('loadedmetadata', setPlaybackReady)
-audioPlayer.addEventListener('play', updatePlaybackButton)
+audioPlayer.addEventListener('play', handlePlaybackStarted)
 audioPlayer.addEventListener('pause', updatePlaybackButton)
 audioPlayer.addEventListener('ended', updatePlaybackButton)
 audioPlayer.addEventListener('error', handlePlaybackError)
+effectInputs.forEach((input) => input.addEventListener('change', handleEffectSelectionChange))
+muffleIntensity.addEventListener('input', handleMuffleIntensityInput)
+muffleIntensity.addEventListener('change', handleMuffleIntensityChange)
+effectPreviewButton.addEventListener('click', handleEffectPreview)
+effectResetButton.addEventListener('click', handleEffectReset)
 window.addEventListener('pagehide', handlePageHide)
 
 if (!recordingSupport.supported) {
   showError(recordingSupport.message)
+}
+if (!audioPreviewEngine.supported) {
+  effectStatus.textContent =
+    'Web Audio is unavailable in this browser. Original playback is still available.'
 }

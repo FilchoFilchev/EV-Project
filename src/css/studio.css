@@ -147,6 +147,49 @@
   background: rgba(226, 239, 230, 0.38);
 }
 
+.studio-effect-options {
+  padding: 0;
+  margin-inline: 0;
+  border: 0;
+}
+
+.studio-effect-options legend {
+  float: none;
+  width: auto;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.studio-effects .form-check-input:checked {
+  border-color: var(--ev-accent);
+  background-color: var(--ev-accent);
+}
+
+.studio-effects .form-check-input:focus-visible,
+.studio-effects .form-range:focus-visible {
+  outline: 3px solid rgba(78, 123, 99, 0.35);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.studio-intensity-control output {
+  color: var(--ev-accent-hover);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-effects .form-range::-webkit-slider-thumb {
+  background-color: var(--ev-accent);
+}
+
+.studio-effects .form-range::-moz-range-thumb {
+  border-color: var(--ev-accent);
+  background-color: var(--ev-accent);
+}
+
+.studio-effect-actions .btn {
+  min-height: 44px;
+}
+
 @keyframes studio-recording-pulse {
   50% {
     box-shadow: 0 0 0 0.55rem rgba(189, 77, 77, 0.04);
@@ -160,6 +203,10 @@
 
   .studio-controls .btn {
     width: 100%;
+  }
+
+  .studio-effect-actions .btn {
+    flex: 1 1 100%;
   }
 }
 
