@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Verify your EchoVault email</title>
+    <style>
+      @media only screen and (max-width: 620px) {
+        .email-card {
+          width: 100% !important;
+        }
+
+        .email-content {
+          padding: 28px 22px !important;
+        }
+
+        .email-brand {
+          padding: 20px 22px !important;
+        }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #edf4ef; color: #263d30; font-family: Arial, Helvetica, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: #edf4ef;">
+      <tr>
+        <td align="center" style="padding: 36px 14px;">
+          <table class="email-card" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; border: 1px solid #d5e4d9; border-radius: 12px; background-color: #ffffff;">
+            <tr>
+              <td class="email-brand" style="padding: 22px 40px; border-radius: 12px 12px 0 0; background-color: #e2efe6;">
+                <span style="color: #4e7b63; font-family: Arial, Helvetica, sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -1px;">
+                  <strong style="color: #263d30;">E</strong>cho<strong style="color: #263d30;">V</strong>ault
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td class="email-content" style="padding: 38px 40px 32px;">
+                <h1 style="margin: 0 0 18px; color: #263d30; font-family: Arial, Helvetica, sans-serif; font-size: 26px; font-weight: 700; line-height: 1.25;">
+                  Verify your email address
+                </h1>
+                <p style="margin: 0 0 26px; color: #405f4d; font-size: 16px; line-height: 1.65;">
+                  Welcome to EchoVault. Confirm your email address to finish setting up your account.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 26px;">
+                  <tr>
+                    <td align="center" style="border-radius: 8px; background-color: #4e7b63;">
+                      <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 24px; border: 1px solid #4e7b63; border-radius: 8px; background-color: #4e7b63; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 700; line-height: 1.2; text-align: center; text-decoration: none;">
+                        Confirm Email
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 0 0 8px; color: #53665a; font-size: 13px; line-height: 1.6;">
+                  If the button does not work, copy and paste this link into your browser:
+                </p>
+                <p style="margin: 0 0 26px; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; word-break: break-word;">
+                  <a href="{{ .ConfirmationURL }}" style="color: #405f4d; text-decoration: underline; overflow-wrap: anywhere; word-break: break-word;">
+                    {{ .ConfirmationURL }}
+                  </a>
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-radius: 8px; background-color: #f6faf7;">
+                  <tr>
+                    <td style="padding: 14px 16px; color: #405f4d; font-size: 13px; line-height: 1.6;">
+                      <strong style="color: #263d30;">Security note:</strong>
+                      If you did not create an EchoVault account, you can ignore this message. Do not share this verification link.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 18px 40px; border-top: 1px solid #e4eee7; color: #53665a; font-size: 12px; line-height: 1.6; text-align: center;">
+                EchoVault account verification
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

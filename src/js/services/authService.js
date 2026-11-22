@@ -125,7 +125,7 @@ export async function isAuthenticated() {
   return { authenticated: Boolean(user) && !error, error }
 }
 
-export async function signUp({ displayName, email, password }) {
+export async function signUp({ displayName: validatedDisplayName, email, password }) {
   if (!supabase) {
     return { user: null, session: null, error: authFailure(configurationError, 'configuration') }
   }
@@ -135,7 +135,7 @@ export async function signUp({ displayName, email, password }) {
       email,
       password,
       options: {
-        data: { display_name: displayName },
+        data: { display_name: validatedDisplayName },
       },
     })
 

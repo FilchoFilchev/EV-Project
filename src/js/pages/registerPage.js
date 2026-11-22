@@ -9,6 +9,7 @@ renderFooter()
 initPageTransitions()
 
 const form = document.querySelector('#register-form')
+const registerPanel = document.querySelector('#register-panel')
 const message = document.querySelector('#register-message')
 const submitButton = form.querySelector('button[type="submit"]')
 const submitLabel = submitButton.textContent
@@ -24,6 +25,59 @@ function showMessage(text, type) {
 function clearMessage() {
   message.hidden = true
   message.textContent = ''
+}
+
+function showConfirmationScreen(email) {
+  form.reset()
+
+  const panel = document.createElement('section')
+  panel.id = 'registration-confirmation'
+  panel.className = registerPanel.className
+  panel.setAttribute('role', 'status')
+  panel.setAttribute('aria-live', 'polite')
+  panel.setAttribute('aria-labelledby', 'registration-confirmation-heading')
+
+  const card = document.createElement('div')
+  card.className = 'card auth-confirmation-card text-center'
+
+  const cardBody = document.createElement('div')
+  cardBody.className = 'card-body p-4 p-md-5'
+
+  const icon = document.createElement('span')
+  icon.className = 'auth-confirmation-icon mb-4'
+  icon.setAttribute('aria-hidden', 'true')
+  icon.textContent = '\u2713'
+
+  const heading = document.createElement('h1')
+  heading.id = 'registration-confirmation-heading'
+  heading.className = 'h2 mb-3'
+  heading.tabIndex = -1
+  heading.textContent = 'Check your inbox!'
+
+  const instructions = document.createElement('p')
+  instructions.className = 'mb-2'
+  instructions.textContent =
+    'If registration can proceed, a verification link will be sent to this address:'
+
+  const submittedEmail = document.createElement('p')
+  submittedEmail.className = 'fw-semibold text-break mb-3'
+  submittedEmail.textContent = email
+
+  const nextStep = document.createElement('p')
+  nextStep.className = 'text-secondary mb-4'
+  nextStep.textContent =
+    'Follow the link in that email to verify your address. If you already have an account, sign in instead.'
+
+  const signInLink = document.createElement('a')
+  signInLink.className = 'btn btn-primary btn-lg auth-confirmation-button'
+  signInLink.href = '/login.html'
+  signInLink.textContent = 'Back to Sign In'
+
+  cardBody.append(icon, heading, instructions, submittedEmail, nextStep, signInLink)
+  card.append(cardBody)
+  panel.append(card)
+  registerPanel.replaceWith(panel)
+  heading.focus()
 }
 
 function setFieldError(name, text = '') {
@@ -143,8 +197,5 @@ form.addEventListener('submit', async (event) => {
     return
   }
 
-  showMessage(
-    'If registration succeeded, check your inbox for a confirmation link before signing in. If you already have an account, sign in instead.',
-    'success'
-  )
+  showConfirmationScreen(values.email)
 })

@@ -53,3 +53,9 @@ browser checks are only a navigation safeguard, while database RLS remains the
 authorization boundary. For local development, `.env.local` should point to
 `echovault-dev` and contain only `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_PUBLISHABLE_KEY`.
+
+The transactional confirmation-email source is
+[docs/email-templates/confirm-signup.html](docs/email-templates/confirm-signup.html).
+It is a local template only; apply it only in the development project's Auth
+email-template settings if the current plan and SMTP configuration permit
+customization. No Supabase email settings are changed by this project.
