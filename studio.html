@@ -6,31 +6,103 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/src/css/main.css" />
+    <link rel="stylesheet" href="/src/css/studio.css" />
     <title>Voice Studio | EchoVault</title>
   </head>
   <body>
     <div id="app" data-page="studio" data-auth-state="pending">
       <div id="navbar"></div>
       <main id="page-content" class="container py-5">
-        <h1 class="h2 mb-4">Voice Studio</h1>
-        <div class="row g-4">
-          <section class="col-lg-7" aria-labelledby="recorder-heading">
-            <article class="card">
-              <div class="card-body">
-                <h2 id="recorder-heading" class="h5">Recorder</h2>
-                <p class="text-secondary">Recording controls will be available in the next implementation prompt.</p>
-                <div class="d-flex gap-2"><button class="btn btn-danger" type="button" disabled>Record</button><button class="btn btn-outline-secondary" type="button" disabled>Stop</button></div>
+        <div class="studio-shell">
+          <header class="studio-header text-center mb-4 mb-md-5">
+            <p class="studio-eyebrow mb-2">Your private creative space</p>
+            <h1 class="display-6 fw-bold mb-3">Voice Studio</h1>
+            <p class="text-secondary mb-0">
+              Record a new voice note or preview an audio file. Your audio stays in this browser and is not saved.
+            </p>
+          </header>
+
+          <section class="card studio-card studio-recorder mb-4" aria-labelledby="recorder-heading">
+            <div class="card-body p-4 p-md-5 text-center">
+              <h2 id="recorder-heading" class="h4 mb-4">Record a voice note</h2>
+
+              <div id="recording-visual" class="studio-recording-visual mb-3" aria-hidden="true">
+                <span class="studio-recording-dot"></span>
+                <div class="studio-wave">
+                  <span class="studio-wave-bar"></span>
+                  <span class="studio-wave-bar"></span>
+                  <span class="studio-wave-bar"></span>
+                  <span class="studio-wave-bar"></span>
+                  <span class="studio-wave-bar"></span>
+                </div>
               </div>
-            </article>
+
+              <p id="recording-timer" class="studio-timer mb-2" aria-label="Recording duration">
+                00:00
+              </p>
+              <p id="recording-status" class="studio-status mb-3" role="status" aria-live="polite" aria-atomic="true">
+                Ready when you are. Microphone access starts only after you choose Record.
+              </p>
+              <div id="studio-error" class="alert alert-danger text-start mb-4" role="alert" hidden></div>
+
+              <div class="studio-controls d-flex justify-content-center gap-3">
+                <button id="record-button" class="btn btn-primary btn-lg" type="button" disabled>
+                  <span class="studio-button-record-dot" aria-hidden="true"></span>
+                  Record
+                </button>
+                <button id="stop-button" class="btn btn-outline-secondary btn-lg" type="button" disabled>
+                  Stop
+                </button>
+              </div>
+
+              <p class="small text-secondary mt-4 mb-0">
+                Keep this page open while recording. Nothing is uploaded or stored.
+              </p>
+            </div>
           </section>
-          <aside class="col-lg-5" aria-labelledby="effects-heading">
-            <article class="card">
-              <div class="card-body">
-                <h2 id="effects-heading" class="h5">Audio effects</h2>
-                <p class="text-secondary">Muffle, Distortion, and Echo controls require a Premium account.</p>
-                <button class="btn btn-outline-primary" type="button" disabled>Preview effect</button>
+
+          <section id="playback-section" class="card studio-card mb-4" aria-labelledby="playback-heading" hidden>
+            <div class="card-body p-4 p-md-5">
+              <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-3">
+                <div>
+                  <h2 id="playback-heading" class="h5 mb-1">Local playback</h2>
+                  <p id="playback-source" class="small text-secondary mb-0"></p>
+                </div>
+                <button id="playback-toggle" class="btn btn-outline-primary" type="button" disabled>
+                  Play
+                </button>
               </div>
-            </article>
+              <audio id="studio-audio" class="studio-audio-player" controls preload="metadata" aria-label="Local audio playback"></audio>
+            </div>
+          </section>
+
+          <section class="card studio-card studio-import mb-4" aria-labelledby="import-heading">
+            <div class="card-body p-4 p-md-5">
+              <h2 id="import-heading" class="h5 mb-2">Choose an audio file</h2>
+              <p class="text-secondary mb-3">
+                Use a supported audio file if a microphone is unavailable. The file is previewed locally and is never uploaded.
+              </p>
+              <label class="form-label fw-semibold" for="audio-file">Audio file</label>
+              <input
+                id="audio-file"
+                class="form-control"
+                type="file"
+                accept="audio/*"
+                aria-describedby="audio-file-help"
+              />
+              <div id="audio-file-help" class="form-text">
+                Choose an audio format your browser can play, such as MP3, WAV, OGG, or M4A.
+              </div>
+            </div>
+          </section>
+
+          <aside class="card studio-card studio-effects" aria-labelledby="effects-heading">
+            <div class="card-body p-4">
+              <h2 id="effects-heading" class="h6 mb-2">Audio effects</h2>
+              <p class="text-secondary mb-0">
+                Muffle, Distortion, and Echo controls are planned for a later implementation step.
+              </p>
+            </div>
           </aside>
         </div>
       </main>
