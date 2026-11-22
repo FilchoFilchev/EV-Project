@@ -1,3 +1,5 @@
+-- Trusted fixture setup bypasses RLS; later SET LOCAL ROLE blocks test it.
+-- This script requires the Prompt 09 migration for Storage privilege checks.
 begin;
 
 do $setup_check$
@@ -13,6 +15,65 @@ declare
     'rls-licensed-buyer@example.test'
   ];
 begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_roles as r
+    where r.rolname = current_user
+      and (r.rolsuper or r.rolbypassrls)
+  ) then
+    raise exception 'Fixture setup requires a trusted RLS-bypassing database role; this is not an authenticated API test.';
+  end if;
+
+  if not pg_catalog.has_table_privilege('authenticated', 'storage.objects', 'SELECT')
+    or not pg_catalog.has_schema_privilege('authenticated', 'storage', 'USAGE')
+    or not pg_catalog.has_schema_privilege('authenticated', 'private', 'USAGE')
+    or not pg_catalog.has_function_privilege(
+      'authenticated',
+      'private.can_delete_unreferenced_audio(text)',
+      'EXECUTE'
+    )
+    or not pg_catalog.has_function_privilege(
+      'authenticated',
+      'public.create_original_voice_recording(text,text,text,text,text,bigint,numeric)',
+      'EXECUTE'
+    )
+    or pg_catalog.has_function_privilege(
+      'anon',
+      'private.can_delete_unreferenced_audio(text)',
+      'EXECUTE'
+    )
+    or pg_catalog.has_function_privilege(
+      'anon',
+      'public.create_original_voice_recording(text,text,text,text,text,bigint,numeric)',
+      'EXECUTE'
+    )
+    or pg_catalog.has_function_privilege(
+      'service_role',
+      'public.create_original_voice_recording(text,text,text,text,text,bigint,numeric)',
+      'EXECUTE'
+    )
+  then
+    raise exception 'Prompt 09 Storage SELECT/schema/function privileges are not configured as expected.';
+  end if;
+
+  if not pg_catalog.has_column_privilege('authenticated', 'public.voice_recordings', 'id', 'SELECT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_recordings', 'owner_id', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_recordings', 'title', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_recordings', 'description', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_recordings', 'category', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_recordings', 'visibility', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'id', 'SELECT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'recording_id', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'effect_type', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'effect_settings', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'storage_path', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'duration_seconds', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'mime_type', 'INSERT')
+    or not pg_catalog.has_column_privilege('authenticated', 'public.voice_versions', 'file_size_bytes', 'INSERT')
+  then
+    raise exception 'Authenticated INSERT/RETURNING column privileges for the metadata RPC are incomplete.';
+  end if;
+
   foreach v_email in array v_emails loop
     if not exists (
       select 1 from auth.users as u where u.email = v_email
@@ -108,6 +169,11 @@ select
   pg_catalog.set_config('echovault.rls.recording_a_public', pg_catalog.gen_random_uuid()::text, true),
   pg_catalog.set_config('echovault.rls.recording_a_private', pg_catalog.gen_random_uuid()::text, true),
   pg_catalog.set_config('echovault.rls.recording_b_public', pg_catalog.gen_random_uuid()::text, true),
+  pg_catalog.set_config(
+    'echovault.rls.cross_owner_audio_path',
+    current_setting('echovault.rls.user_a') || '/' || pg_catalog.gen_random_uuid()::text || '.wav',
+    true
+  ),
   pg_catalog.set_config('echovault.rls.recording_premium', pg_catalog.gen_random_uuid()::text, true),
   pg_catalog.set_config('echovault.rls.recording_expired', pg_catalog.gen_random_uuid()::text, true),
   pg_catalog.set_config('echovault.rls.recording_premium_no_expiry', pg_catalog.gen_random_uuid()::text, true),
@@ -169,6 +235,19 @@ values
   (current_setting('echovault.rls.version_a_archived')::uuid,
    current_setting('echovault.rls.recording_a_public')::uuid, 'echo', '{}'::jsonb,
    current_setting('echovault.rls.user_a') || '/' || current_setting('echovault.rls.version_a_archived') || '.wav', 1, 'audio/wav', 1000);
+
+insert into public.voice_versions
+  (recording_id, effect_type, effect_settings, storage_path, duration_seconds, mime_type, file_size_bytes)
+values
+  (
+    current_setting('echovault.rls.recording_b_public')::uuid,
+    'muffle',
+    '{}'::jsonb,
+    current_setting('echovault.rls.cross_owner_audio_path'),
+    1,
+    'audio/wav',
+    1000
+  );
 
 insert into public.listings
   (id, version_id, status, sale_price_cents, rental_price_cents, preview_path)
@@ -274,7 +353,6 @@ declare
   v_count bigint;
   v_rows bigint;
   v_new_recording_id uuid;
-  v_new_version_id uuid;
   v_new_report_id uuid;
 begin
   if current_user <> 'authenticated'
@@ -433,6 +511,17 @@ begin
   end if;
 
   select count(*) into v_count
+  from public.voice_versions
+  where storage_path = current_setting('echovault.rls.cross_owner_audio_path');
+  if v_count <> 0 then raise exception 'FAIL: User A read User B version metadata'; end if;
+
+  if private.can_delete_unreferenced_audio(
+    current_setting('echovault.rls.cross_owner_audio_path')
+  ) then
+    raise exception 'FAIL: hidden cross-owner reference was treated as unreferenced';
+  end if;
+
+  select count(*) into v_count
   from public.marketplace_listing_summaries
   where listing_id = current_setting('echovault.rls.listing_a_published')::uuid;
   if v_count <> 1 then raise exception 'FAIL: published public listing missing from summary view'; end if;
@@ -484,29 +573,17 @@ begin
   returning id into v_new_recording_id;
   if v_new_recording_id is null then raise exception 'FAIL: recording INSERT RETURNING returned no id'; end if;
 
-  insert into public.voice_versions
-    (recording_id, effect_type, effect_settings, storage_path, duration_seconds, mime_type, file_size_bytes)
-  values
-    (v_new_recording_id, 'original', '{}'::jsonb,
-     auth.uid()::text || '/' || pg_catalog.gen_random_uuid()::text || '.wav', 1, 'audio/wav', 1000)
-  returning id into v_new_version_id;
-  if v_new_version_id is null then raise exception 'FAIL: User A cannot create original version'; end if;
-
   begin
     insert into public.voice_versions
       (recording_id, effect_type, effect_settings, storage_path, duration_seconds, mime_type, file_size_bytes)
     values
       (v_new_recording_id, 'original', '{}'::jsonb,
-       current_setting('echovault.rls.user_a') || '/' ||
-         current_setting('echovault.rls.version_a_public') || '.wav',
+       auth.uid()::text || '/' || pg_catalog.gen_random_uuid()::text || '.wav',
        1, 'audio/wav', 1000);
-    raise exception 'FAIL: two versions referenced the same storage path';
-  exception when unique_violation then
+    raise exception 'FAIL: direct original metadata without an uploaded object was inserted';
+  exception when insufficient_privilege then
     null;
   end;
-
-  insert into public.listings (version_id, status, sale_price_cents)
-  values (v_new_version_id, 'draft', 100);
 
   begin
     insert into public.voice_versions
@@ -526,7 +603,7 @@ begin
       (current_setting('echovault.rls.recording_a_public')::uuid, 'original', '{}'::jsonb,
        auth.uid()::text || '/' || pg_catalog.gen_random_uuid()::text || '.wav', 1, 'audio/wav', 1000);
     raise exception 'FAIL: duplicate original version was inserted';
-  exception when unique_violation then
+  exception when insufficient_privilege or unique_violation then
     null;
   end;
 

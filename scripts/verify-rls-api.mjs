@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const results = [];
+const retainedStoragePaths = new Set();
+const pendingStorageCleanupPaths = new Set();
 const requiredTests = [
   'User A reads own permitted profile fields',
   'User A reads own standard role',
@@ -22,6 +24,23 @@ const requiredTests = [
   'Ordinary user cannot create a license directly',
   'Authenticated user can see published marketplace listings',
   'Draft and archived listings stay out of marketplace summaries',
+  'User A uploads and saves one private original',
+  'User A sees the saved recording in My Library',
+  'User B cannot see User A recordings in My Library',
+  'User A can download their own private audio',
+  'User B cannot read or download User A private audio by path',
+  'User B cannot claim, overwrite, or delete User A private audio',
+  'Anonymous upload and download are denied',
+  'Unsupported MIME uploads are denied',
+  'MIME and extension mismatches are denied',
+  'Oversized audio uploads are denied',
+  'Direct original metadata without a matching object is denied',
+  'Duplicate original versions are denied',
+  'Repeated RPC submission does not create extra metadata rows',
+  'Metadata failure permits safe cleanup of an unreferenced upload',
+  'RPC rejects uploaded-object MIME and size mismatches',
+  'Referenced original deletion is denied',
+  'Owner can remove an unreferenced upload',
 ];
 
 class CheckFailure extends Error {}
@@ -33,6 +52,47 @@ function report(name, status, detail = '') {
 
 function skip(reason) {
   return { skip: reason };
+}
+
+function trackStorageTestPath(path) {
+  pendingStorageCleanupPaths.add(path);
+  console.log(`echovault-dev Storage test path: ${path}`);
+}
+
+function makeWavFixture(sampleValue = 0) {
+  const sampleRate = 8000;
+  const dataSize = sampleRate * 2 * 1.25;
+  const buffer = Buffer.alloc(44 + dataSize, sampleValue);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(buffer.length - 8, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function makeOversizedAudioFixture() {
+  return new Blob([Buffer.alloc(20 * 1024 * 1024 + 1)], { type: 'audio/wav' });
+}
+
+function isStorageDenial(error) {
+  const status = Number(error?.status)
+  return Boolean(
+    error &&
+      (isAuthorizationDenied(error) || status === 400 || status === 404)
+  );
+}
+
+function includesStoragePath(objects, path) {
+  return Array.isArray(objects) && objects.some((object) => object?.name === path)
 }
 
 function parseEnvValue(contents, name) {
@@ -143,7 +203,7 @@ async function confirmDevelopmentTarget() {
   const projectRef = testUrl.hostname.split('.')[0];
   console.log(`Target project reference: ${projectRef}`);
   console.log('Verify that this reference belongs to echovault-dev, not the primary project.');
-  console.log('This run creates a private recording that these RLS policies do not permit the client to delete.');
+  console.log('This run creates private recording and Storage fixtures that ordinary clients cannot delete while referenced.');
   if (!process.stdin.isTTY) {
     throw new CheckFailure('Interactive echovault-dev confirmation is required; no network request was made.');
   }
@@ -223,6 +283,26 @@ function isAuthorizationDenied(error) {
 
 function requireNoApiError(error, operation) {
   if (error) throw new CheckFailure(`${operation} failed (${apiErrorCode(error)}).`);
+}
+
+async function removeConfirmedUnreferencedAudio(client, path) {
+  const { data: version, error: versionError } = await client
+    .from('voice_versions')
+    .select('id')
+    .eq('storage_path', path)
+    .maybeSingle();
+  requireNoApiError(versionError, `Checking whether ${path} is referenced`);
+  if (version) {
+    throw new CheckFailure(`The uploaded path ${path} is referenced; cleanup was not attempted.`);
+  }
+
+  const { data, error } = await client.storage.from('voice-files').remove([path]);
+  requireNoApiError(error, `Removing confirmed unreferenced upload ${path}`);
+  if (!includesStoragePath(data, path)) {
+    throw new CheckFailure(`Storage did not confirm removal of unreferenced object ${path}.`);
+  }
+  pendingStorageCleanupPaths.delete(path);
+  retainedStoragePaths.delete(path);
 }
 
 async function runTest(name, operation) {
@@ -310,6 +390,8 @@ async function main() {
   let recording;
   let marketplaceRows = [];
   let fixtureListings;
+  let storageFixture;
+  let anonymousClient;
 
   try {
     let config;
@@ -327,6 +409,7 @@ async function main() {
 
     clientA = makeClient(config.url, config.key);
     clientB = makeClient(config.url, config.key);
+    anonymousClient = makeClient(config.url, config.key);
 
     const signInA = await clientA.auth.signInWithPassword({
       email: config.env.RLS_USER_A_EMAIL,
@@ -734,6 +817,392 @@ async function main() {
       }
       throw new CheckFailure('No row or authorization error was returned; denial was not established.');
     });
+
+    await runTest('User A uploads and saves one private original', async () => {
+      if (roleA?.role !== 'user') return skip('Requires User A to have the standard user role.');
+
+      const audio = makeWavFixture(0);
+      const path = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(path);
+      const { error: uploadError } = await clientA.storage.from('voice-files').upload(path, audio, {
+        contentType: 'audio/wav',
+        upsert: false,
+      });
+      requireNoApiError(uploadError, `Uploading a private original fixture at ${path}`);
+
+      const { data, error } = await clientA.rpc('create_original_voice_recording', {
+        p_title: `RLS Storage API verification ${randomUUID()}`,
+        p_category: 'test',
+        p_description: 'Disposable private original Storage API fixture.',
+        p_storage_path: path,
+        p_mime_type: 'audio/wav',
+        p_file_size_bytes: audio.size,
+        p_duration_seconds: 1.25,
+      });
+
+      if (error) {
+        const status = Number(error.status);
+        if (Number.isInteger(status) && status >= 400 && status < 500) {
+          await removeConfirmedUnreferencedAudio(clientA, path);
+        }
+        throw new CheckFailure(`Atomic metadata RPC failed (${apiErrorCode(error)}).`);
+      }
+
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.recording_id || !result?.version_id) {
+        throw new CheckFailure(
+          'The RPC result was uncertain; cleanup was not attempted to avoid deleting a referenced object.'
+        );
+      }
+
+      storageFixture = {
+        audio,
+        path,
+        recordingId: result.recording_id,
+        versionId: result.version_id,
+      };
+      pendingStorageCleanupPaths.delete(path);
+      retainedStoragePaths.add(path);
+    });
+
+    await runTest('User A sees the saved recording in My Library', async () => {
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const { data: recordingRow, error: recordingError } = await clientA
+        .from('voice_recordings')
+        .select('id,owner_id,title,category,created_at')
+        .eq('id', storageFixture.recordingId)
+        .eq('owner_id', userA.id)
+        .maybeSingle();
+      requireNoApiError(recordingError, 'Reading the saved library recording');
+
+      const { data: versions, error: versionError } = await clientA
+        .from('voice_versions')
+        .select('id,recording_id,effect_type,storage_path,duration_seconds,mime_type,file_size_bytes')
+        .eq('recording_id', storageFixture.recordingId)
+        .eq('effect_type', 'original');
+      requireNoApiError(versionError, 'Reading the saved original version');
+
+      if (
+        !recordingRow ||
+        recordingRow.owner_id !== userA.id ||
+        versions?.length !== 1 ||
+        versions[0].id !== storageFixture.versionId ||
+        versions[0].storage_path !== storageFixture.path
+      ) {
+        throw new CheckFailure('The library did not return exactly one owned original recording and version.');
+      }
+    });
+
+    await runTest('User B cannot see User A recordings in My Library', async () => {
+      if (!userBIsStandard) return skip('Requires User B to have the standard user role.');
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const { data, error } = await clientB
+        .from('voice_recordings')
+        .select('id,owner_id')
+        .eq('owner_id', userA.id)
+        .eq('id', storageFixture.recordingId);
+      requireNoApiError(error, 'Checking User B library visibility');
+      if (data?.length) {
+        throw new CheckFailure('User B saw User A private recordings in My Library.');
+      }
+    });
+
+    await runTest('User A can download their own private audio', async () => {
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const { data, error } = await clientA.storage
+        .from('voice-files')
+        .download(storageFixture.path);
+      requireNoApiError(error, 'Downloading an owned private audio object');
+      if (!data || data.size !== storageFixture.audio.size) {
+        throw new CheckFailure('The owner download did not return the uploaded audio.');
+      }
+    });
+
+    await runTest('User B cannot read or download User A private audio by path', async () => {
+      if (!userBIsStandard) return skip('Requires User B to have the standard user role.');
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const { data, error } = await clientB.storage
+        .from('voice-files')
+        .download(storageFixture.path);
+      if (!isStorageDenial(error) || data) {
+        throw new CheckFailure('User B received User A private audio or the denial was not established.');
+      }
+    });
+
+    await runTest('User B cannot claim, overwrite, or delete User A private audio', async () => {
+      if (!userBIsStandard) return skip('Requires User B to have the standard user role.');
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const attemptedClaim = await clientB.rpc('create_original_voice_recording', {
+        p_title: 'Unauthorized ownership attempt',
+        p_category: 'test',
+        p_description: '',
+        p_storage_path: storageFixture.path,
+        p_mime_type: 'audio/wav',
+        p_file_size_bytes: storageFixture.audio.size,
+        p_duration_seconds: 1.25,
+      });
+      if (!isAuthorizationDenied(attemptedClaim.error)) {
+        throw new CheckFailure('The RPC did not reject User B claiming User A private audio.');
+      }
+
+      const overwrite = await clientB.storage.from('voice-files').upload(
+        storageFixture.path,
+        makeWavFixture(32),
+        { contentType: 'audio/wav', upsert: true },
+      );
+      if (!isStorageDenial(overwrite.error)) {
+        throw new CheckFailure('User B was not denied an overwrite attempt.');
+      }
+
+      const deletion = await clientB.storage.from('voice-files').remove([storageFixture.path]);
+      if (deletion.error && !isStorageDenial(deletion.error)) {
+        throw new CheckFailure(`User B delete attempt failed unexpectedly (${apiErrorCode(deletion.error)}).`);
+      }
+
+      const ownerDownload = await clientA.storage
+        .from('voice-files')
+        .download(storageFixture.path);
+      requireNoApiError(ownerDownload.error, 'Verifying the object after User B mutation attempts');
+      if (!ownerDownload.data || ownerDownload.data.size !== storageFixture.audio.size) {
+        throw new CheckFailure('User B changed or removed User A private audio.');
+      }
+    });
+
+    await runTest('Anonymous upload and download are denied', async () => {
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const anonymousPath = `${userA.id}/${randomUUID()}.wav`;
+      const upload = await anonymousClient.storage.from('voice-files').upload(
+        anonymousPath,
+        makeWavFixture(),
+        { contentType: 'audio/wav', upsert: false },
+      );
+      if (!isStorageDenial(upload.error)) {
+        throw new CheckFailure('Anonymous Storage upload was not denied.');
+      }
+
+      const download = await anonymousClient.storage
+        .from('voice-files')
+        .download(storageFixture.path);
+      if (!isStorageDenial(download.error) || download.data) {
+        throw new CheckFailure('Anonymous private audio download was not denied.');
+      }
+    });
+
+    await runTest('Unsupported MIME uploads are denied', async () => {
+      const path = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(path);
+      const upload = await clientA.storage.from('voice-files').upload(path, makeWavFixture(), {
+        contentType: 'audio/aac',
+        upsert: false,
+      });
+      const status = Number(upload.error?.status ?? upload.error?.statusCode);
+      if (!upload.error || status !== 400) {
+        await removeConfirmedUnreferencedAudio(clientA, path);
+        throw new CheckFailure('Storage accepted an unsupported audio MIME type.');
+      }
+      pendingStorageCleanupPaths.delete(path);
+    });
+
+    await runTest('MIME and extension mismatches are denied', async () => {
+      const path = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(path);
+      const upload = await clientA.storage.from('voice-files').upload(path, makeWavFixture(), {
+        contentType: 'audio/mpeg',
+        upsert: false,
+      });
+      const status = Number(upload.error?.status ?? upload.error?.statusCode);
+      if (![400, 403].includes(status)) {
+        await removeConfirmedUnreferencedAudio(clientA, path);
+        throw new CheckFailure('Storage did not reject an MP3 MIME type with a WAV extension.');
+      }
+      pendingStorageCleanupPaths.delete(path);
+    });
+
+    await runTest('Oversized audio uploads are denied', async () => {
+      const path = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(path);
+      const upload = await clientA.storage.from('voice-files').upload(
+        path,
+        makeOversizedAudioFixture(),
+        { contentType: 'audio/wav', upsert: false },
+      );
+      const status = Number(upload.error?.status ?? upload.error?.statusCode);
+      if (!upload.error || ![400, 413].includes(status)) {
+        await removeConfirmedUnreferencedAudio(clientA, path);
+        throw new CheckFailure('Storage did not reject audio larger than the 20 MiB bucket limit.');
+      }
+      pendingStorageCleanupPaths.delete(path);
+    });
+
+    await runTest('Direct original metadata without a matching object is denied', async () => {
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const { data, error } = await clientA
+        .from('voice_versions')
+        .insert({
+          recording_id: storageFixture.recordingId,
+          effect_type: 'original',
+          effect_settings: {},
+          storage_path: `${userA.id}/${randomUUID()}.wav`,
+          duration_seconds: 1.25,
+          mime_type: 'audio/wav',
+          file_size_bytes: 1000,
+        })
+        .select('id')
+        .single();
+
+      if (!isAuthorizationDenied(error) || data) {
+        throw new CheckFailure('Direct original insertion bypassed uploaded-object validation.');
+      }
+    });
+
+    await runTest('Duplicate original versions are denied', async () => {
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const { data, error } = await clientA
+        .from('voice_versions')
+        .insert({
+          recording_id: storageFixture.recordingId,
+          effect_type: 'original',
+          effect_settings: {},
+          storage_path: storageFixture.path,
+          duration_seconds: 1.25,
+          mime_type: 'audio/wav',
+          file_size_bytes: storageFixture.audio.size,
+        })
+        .select('id')
+        .single();
+
+      if (error?.code !== '23505' || data) {
+        throw new CheckFailure('The unique-original constraint did not reject a duplicate original version.');
+      }
+    });
+
+    await runTest('Repeated RPC submission does not create extra metadata rows', async () => {
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const duplicateTitle = `Duplicate RPC ${randomUUID()}`;
+      const duplicate = await clientA.rpc('create_original_voice_recording', {
+        p_title: duplicateTitle,
+        p_category: 'test',
+        p_description: '',
+        p_storage_path: storageFixture.path,
+        p_mime_type: 'audio/wav',
+        p_file_size_bytes: storageFixture.audio.size,
+        p_duration_seconds: 1.25,
+      });
+      if (duplicate.error?.code !== '23505') {
+        throw new CheckFailure('The RPC did not reject a repeated save of the same private object.');
+      }
+
+      const { data: recordings, error: recordingError } = await clientA
+        .from('voice_recordings')
+        .select('id')
+        .eq('owner_id', userA.id)
+        .eq('title', duplicateTitle);
+      requireNoApiError(recordingError, 'Checking the repeated-save transaction rollback');
+      if (recordings?.length) {
+        throw new CheckFailure('The failed repeated RPC left a duplicate recording row.');
+      }
+    });
+
+    await runTest('Metadata failure permits safe cleanup of an unreferenced upload', async () => {
+      const audio = makeWavFixture();
+      const path = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(path);
+      const upload = await clientA.storage.from('voice-files').upload(path, audio, {
+        contentType: 'audio/wav',
+        upsert: false,
+      });
+      requireNoApiError(upload.error, `Uploading the metadata-failure fixture at ${path}`);
+
+      const failedMetadata = await clientA.rpc('create_original_voice_recording', {
+        p_title: '   ',
+        p_category: 'test',
+        p_description: '',
+        p_storage_path: path,
+        p_mime_type: 'audio/wav',
+        p_file_size_bytes: audio.size,
+        p_duration_seconds: 1.25,
+      });
+      if (failedMetadata.error?.code !== '22023') {
+        throw new CheckFailure('The RPC did not reject the invalid title as expected.');
+      }
+
+      await removeConfirmedUnreferencedAudio(clientA, path);
+    });
+
+    await runTest('RPC rejects uploaded-object MIME and size mismatches', async () => {
+      const audio = makeWavFixture();
+      const path = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(path);
+      const upload = await clientA.storage.from('voice-files').upload(path, audio, {
+        contentType: 'audio/wav',
+        upsert: false,
+      });
+      requireNoApiError(upload.error, `Uploading the metadata-mismatch fixture at ${path}`);
+
+      const mismatchCases = [
+        { p_mime_type: 'audio/x-wav', p_file_size_bytes: audio.size },
+        { p_mime_type: 'audio/wav', p_file_size_bytes: audio.size + 1 },
+      ];
+      for (const mismatch of mismatchCases) {
+        const result = await clientA.rpc('create_original_voice_recording', {
+          p_title: `Metadata mismatch ${randomUUID()}`,
+          p_category: 'test',
+          p_description: '',
+          p_storage_path: path,
+          p_mime_type: mismatch.p_mime_type,
+          p_file_size_bytes: mismatch.p_file_size_bytes,
+          p_duration_seconds: 1.25,
+        });
+        if (result.error?.code !== '22023') {
+          throw new CheckFailure('The RPC did not reject the uploaded-object MIME or size mismatch.');
+        }
+      }
+
+      await removeConfirmedUnreferencedAudio(clientA, path);
+    });
+
+    await runTest('Referenced original deletion is denied', async () => {
+      if (!storageFixture) return skip('The User A private original fixture was not created.');
+
+      const removal = await clientA.storage.from('voice-files').remove([storageFixture.path]);
+      if (removal.error && !isStorageDenial(removal.error)) {
+        throw new CheckFailure(`Referenced-object deletion failed unexpectedly (${apiErrorCode(removal.error)}).`);
+      }
+
+      const stillAvailable = await clientA.storage
+        .from('voice-files')
+        .download(storageFixture.path);
+      requireNoApiError(stillAvailable.error, 'Verifying a referenced original remains available');
+      if (!stillAvailable.data || stillAvailable.data.size !== storageFixture.audio.size) {
+        throw new CheckFailure('A referenced original was deleted.');
+      }
+    });
+
+    await runTest('Owner can remove an unreferenced upload', async () => {
+      const path = `${userA.id}/${randomUUID()}.wav`;
+      trackStorageTestPath(path);
+      const upload = await clientA.storage.from('voice-files').upload(path, makeWavFixture(), {
+        contentType: 'audio/wav',
+        upsert: false,
+      });
+      requireNoApiError(upload.error, `Uploading the unreferenced cleanup fixture at ${path}`);
+
+      const removal = await clientA.storage.from('voice-files').remove([path]);
+      requireNoApiError(removal.error, `Removing owned unreferenced audio object ${path}`);
+      if (!includesStoragePath(removal.data, path)) {
+        throw new CheckFailure(`Storage did not confirm removal of owned unreferenced object ${path}.`);
+      }
+      pendingStorageCleanupPaths.delete(path);
+    });
   } finally {
     if (signedInA) {
       await signOutLocally(clientA, 'User A');
@@ -759,6 +1228,15 @@ try {
   console.log(`\nSummary: ${passed} passed, ${failed} failed, ${skipped} skipped.`);
   if (results.some((result) => result.name === 'User A can use INSERT RETURNING id' && result.status === 'PASS')) {
     console.log('Note: The private recording fixture remains in the dev database; client-side DELETE is intentionally unavailable.');
+  }
+  if (results.some((result) => result.name === 'User A uploads and saves one private original' && result.status === 'PASS')) {
+    console.log('Note: The marked private Storage API recording and object remain in echovault-dev. Run the trusted cleanup SQL for metadata, then remove only the printed path through User A authorized Storage access.');
+  }
+  for (const path of retainedStoragePaths) {
+    console.log(`Referenced Storage cleanup path (remove only after metadata cleanup succeeds): ${path}`);
+  }
+  for (const path of pendingStorageCleanupPaths) {
+    console.warn(`Unresolved Storage cleanup path (verify its metadata/reference state before removal): ${path}`);
   }
   if (failed > 0) process.exitCode = 1;
 }

@@ -2,6 +2,15 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import { renderNavbar } from '../components/navbar.js'
 import { renderFooter } from '../components/footer.js'
 import { RecordingService, getRecordingSupport } from '../services/recordingService.js'
+import {
+  createOriginalRecording,
+  findOwnedOriginalByPath,
+} from '../services/voiceRecordingService.js'
+import {
+  removeUnreferencedAudio,
+  uploadOriginalAudio,
+} from '../services/storageService.js'
+import { validateOriginalAudio } from '../utils/audioUploadValidation.js'
 import { requireAuthentication } from '../utils/routeGuard.js'
 import { initPageTransitions } from '../utils/pageTransitions.js'
 
@@ -22,6 +31,16 @@ const recordingTimer = document.querySelector('#recording-timer')
 const recordingVisual = document.querySelector('#recording-visual')
 const errorMessage = document.querySelector('#studio-error')
 const fileImportHelp = document.querySelector('#audio-file-help')
+const saveSection = document.querySelector('#save-original-section')
+const saveForm = document.querySelector('#save-original-form')
+const saveButton = document.querySelector('#save-original-button')
+const saveError = document.querySelector('#save-original-error')
+const saveStatus = document.querySelector('#save-original-status')
+const titleInput = document.querySelector('#recording-title')
+const categoryInput = document.querySelector('#recording-category')
+const descriptionInput = document.querySelector('#recording-description')
+const titleError = document.querySelector('#recording-title-error')
+const categoryError = document.querySelector('#recording-category-error')
 const recordingService = new RecordingService()
 const recordingSupport = getRecordingSupport()
 
@@ -32,6 +51,11 @@ let recordingInProgress = false
 let playbackUrl = null
 let playbackSourceKind = ''
 let playbackAvailable = false
+let currentAudioBlob = null
+let currentAudioDuration = null
+let savingOriginal = false
+let originalSaved = false
+let saveOutcomeUncertain = false
 
 function showError(message) {
   errorMessage.textContent = message
@@ -42,6 +66,22 @@ function clearError() {
   const persistentMessage = recordingSupport.supported ? '' : recordingSupport.message
   errorMessage.textContent = persistentMessage
   errorMessage.hidden = !persistentMessage
+}
+
+function showSaveError(message) {
+  saveError.textContent = message
+  saveError.hidden = false
+}
+
+function clearSaveError() {
+  saveError.textContent = ''
+  saveError.hidden = true
+}
+
+function setSaveStatus(message, success = false) {
+  saveStatus.replaceChildren(document.createTextNode(message))
+  saveStatus.classList.toggle('text-success', success)
+  saveStatus.classList.toggle('text-secondary', !success)
 }
 
 function formatTime(milliseconds) {
@@ -84,6 +124,15 @@ function startTimer() {
   recordingInterval = window.setInterval(updateTimer, 250)
 }
 
+function resetSaveForm() {
+  titleInput.value = ''
+  categoryInput.value = ''
+  descriptionInput.value = ''
+  clearFieldError(titleInput, titleError)
+  clearFieldError(categoryInput, categoryError)
+  clearSaveError()
+}
+
 function releasePlaybackSource() {
   audioPlayer.pause()
   audioPlayer.removeAttribute('src')
@@ -96,21 +145,60 @@ function releasePlaybackSource() {
 
   playbackAvailable = false
   playbackSourceKind = ''
+  currentAudioBlob = null
+  currentAudioDuration = null
+  originalSaved = false
+  saveOutcomeUncertain = false
   playbackSection.hidden = true
+  saveSection.hidden = true
   playbackButton.disabled = true
   playbackButton.textContent = 'Play'
   playbackButton.setAttribute('aria-pressed', 'false')
   playbackSource.textContent = ''
+  setSaveStatus('')
+  resetSaveForm()
+}
+
+function updateSaveAvailability() {
+  const audioValidation = validateOriginalAudio({
+    blob: currentAudioBlob,
+    durationSeconds: currentAudioDuration,
+    title: 'Recording',
+    category: 'Audio',
+  })
+
+  saveButton.disabled =
+    savingOriginal ||
+    originalSaved ||
+    saveOutcomeUncertain ||
+    !currentAudioBlob ||
+    Boolean(audioValidation.error)
+
+  if (savingOriginal || originalSaved || saveOutcomeUncertain) {
+    return
+  }
+
+  if (!currentAudioBlob) {
+    setSaveStatus('')
+  } else if (audioValidation.error) {
+    setSaveStatus(audioValidation.error)
+  } else {
+    setSaveStatus('Audio is ready. It remains local until you choose Save Original.')
+  }
 }
 
 function setPlaybackSource(blob, sourceKind, description) {
   releasePlaybackSource()
+  currentAudioBlob = blob
   playbackSourceKind = sourceKind
   playbackSource.textContent = description
   playbackUrl = URL.createObjectURL(blob)
   playbackSection.hidden = false
+  saveSection.hidden = false
   audioPlayer.src = playbackUrl
   audioPlayer.load()
+  setSaveStatus('Reading audio details before it can be saved.')
+  updateSaveAvailability()
 }
 
 function hasActivePlaybackSource() {
@@ -126,6 +214,11 @@ function setPlaybackReady() {
 
   playbackAvailable = true
   playbackButton.disabled = false
+  currentAudioDuration =
+    Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0
+      ? audioPlayer.duration
+      : null
+  updateSaveAvailability()
   clearError()
 }
 
@@ -151,10 +244,10 @@ function updatePlaybackButton() {
 
 function updateControls(state) {
   const isBusy = ['requesting-permission', 'recording', 'processing'].includes(state)
-  recordButton.disabled = !recordingSupport.supported || isBusy
+  recordButton.disabled = !recordingSupport.supported || isBusy || savingOriginal
   stopButton.disabled = state !== 'recording'
-  fileInput.disabled = isBusy
-  playbackButton.disabled = !playbackAvailable || isBusy
+  fileInput.disabled = isBusy || savingOriginal
+  playbackButton.disabled = !playbackAvailable || isBusy || savingOriginal
   recordingVisual.classList.toggle('is-recording', state === 'recording')
 }
 
@@ -214,10 +307,7 @@ function isAudioFile(file) {
 
   const isAudioMimeType = file.type.toLowerCase().startsWith('audio/')
   const isGenericMimeType = file.type.toLowerCase() === 'application/octet-stream'
-  return (
-    isAudioMimeType ||
-    ((!file.type || isGenericMimeType) && hasKnownAudioExtension(file))
-  )
+  return isAudioMimeType || ((!file.type || isGenericMimeType) && hasKnownAudioExtension(file))
 }
 
 function handleFileSelection() {
@@ -242,7 +332,181 @@ function handleFileSelection() {
   stopTimer({ reset: true })
   setPlaybackSource(file, 'file', `Local file: ${file.name}`)
   recordingStatus.textContent = 'Audio file ready for local playback.'
-  fileImportHelp.textContent = 'This file remains local to your browser and is not uploaded.'
+  fileImportHelp.textContent =
+    'This file remains local until you choose Save Original. Saved audio must be 20 MiB or smaller and use a supported format.'
+}
+
+function clearFieldError(input, errorElement) {
+  input.removeAttribute('aria-invalid')
+  errorElement.textContent = ''
+  errorElement.hidden = true
+}
+
+function setFieldError(input, errorElement, message) {
+  input.setAttribute('aria-invalid', 'true')
+  errorElement.textContent = message
+  errorElement.hidden = false
+}
+
+function validateSaveForm() {
+  clearSaveError()
+  clearFieldError(titleInput, titleError)
+  clearFieldError(categoryInput, categoryError)
+
+  let firstInvalidField = null
+  const title = titleInput.value.trim()
+  const category = categoryInput.value.trim()
+
+  if (!title || Array.from(title).length > 120) {
+    setFieldError(titleInput, titleError, 'Enter a title between 1 and 120 characters.')
+    firstInvalidField = titleInput
+  }
+
+  if (!category || Array.from(category).length > 80) {
+    setFieldError(categoryInput, categoryError, 'Enter a category between 1 and 80 characters.')
+    firstInvalidField ??= categoryInput
+  }
+
+  if (firstInvalidField) {
+    firstInvalidField.focus()
+    return null
+  }
+
+  const validated = validateOriginalAudio({
+    blob: currentAudioBlob,
+    durationSeconds: currentAudioDuration,
+    title,
+    category,
+    description: descriptionInput.value,
+  })
+
+  if (validated.error) {
+    showSaveError(validated.error)
+    return null
+  }
+
+  return validated
+}
+
+function markOriginalSaved(recording) {
+  originalSaved = true
+  saveOutcomeUncertain = false
+  clearSaveError()
+  saveButton.disabled = true
+  saveStatus.replaceChildren(
+    document.createTextNode(`“${recording.title}” is saved in your private library. `)
+  )
+  const libraryLink = document.createElement('a')
+  libraryLink.href = '/my-library.html'
+  libraryLink.textContent = 'Open My Library'
+  saveStatus.append(libraryLink)
+  saveStatus.classList.add('text-success')
+  saveStatus.classList.remove('text-secondary')
+}
+
+async function reconcileFailedSave(storagePath, originalMessage, allowCleanup = false) {
+  const verification = await findOwnedOriginalByPath(storagePath)
+  if (verification.recording) {
+    markOriginalSaved(verification.recording)
+    return
+  }
+
+  if (verification.error) {
+    saveOutcomeUncertain = true
+    saveButton.disabled = true
+    showSaveError(
+      `${originalMessage} The save result could not be checked, so the upload was not removed. Check My Library before retrying.`
+    )
+    setSaveStatus('Save status is uncertain. Do not retry until you have checked My Library.')
+    return
+  }
+
+  if (!allowCleanup) {
+    saveOutcomeUncertain = true
+    saveButton.disabled = true
+    showSaveError(
+      `${originalMessage} The metadata request may still have completed, so the file was not removed. Check My Library before retrying.`
+    )
+    setSaveStatus('Save status is uncertain. Do not retry until you have checked My Library.')
+    return
+  }
+
+  const cleanup = await removeUnreferencedAudio(storagePath)
+  if (cleanup.removed) {
+    showSaveError(`${originalMessage} The unreferenced upload was removed. You can try again.`)
+    return
+  }
+
+  saveOutcomeUncertain = true
+  saveButton.disabled = true
+  showSaveError(
+    `${originalMessage} Cleanup could not be confirmed, so the private file may remain. Check My Library before retrying.`
+  )
+  setSaveStatus('Save status is uncertain. Do not retry until you have checked My Library.')
+}
+
+async function handleSaveOriginal(event) {
+  event.preventDefault()
+  if (savingOriginal || originalSaved || saveOutcomeUncertain || !currentAudioBlob) {
+    return
+  }
+
+  const validated = validateSaveForm()
+  if (!validated) {
+    return
+  }
+
+  savingOriginal = true
+  saveButton.disabled = true
+  saveStatus.classList.remove('text-success')
+  saveStatus.classList.add('text-secondary')
+  setSaveStatus('Uploading private audio and saving its details...')
+
+  let uploadPath = null
+  try {
+    const upload = await uploadOriginalAudio(currentAudioBlob, validated.mimeType)
+    uploadPath = upload.path
+
+    if (upload.error) {
+      if (upload.path && upload.error.outcomeUnknown) {
+        await reconcileFailedSave(upload.path, upload.error.message, true)
+      } else {
+        showSaveError(upload.error.message)
+      }
+      return
+    }
+
+    const result = await createOriginalRecording({
+      ...validated,
+      blob: currentAudioBlob,
+      storagePath: upload.path,
+    })
+
+    if (result.recording) {
+      markOriginalSaved(result.recording)
+      return
+    }
+
+    await reconcileFailedSave(
+      upload.path,
+      result.error?.message ?? 'The recording could not be saved.',
+      !result.error?.outcomeUnknown
+    )
+  } catch {
+    if (uploadPath) {
+      await reconcileFailedSave(
+        uploadPath,
+        'The save result could not be confirmed.',
+        false
+      )
+    } else {
+      showSaveError('The recording could not be saved. Check your connection and try again.')
+    }
+  } finally {
+    savingOriginal = false
+    updateControls(recordingService.state)
+    updateSaveAvailability()
+  }
 }
 
 async function handlePlaybackToggle() {
@@ -270,17 +534,32 @@ function handleRecordingStop() {
   recordingService.stop()
 }
 
+function handleSaveFieldInput(input, errorElement) {
+  clearFieldError(input, errorElement)
+}
+
 function removePageListeners() {
   recordButton.removeEventListener('click', handleRecordingStart)
   stopButton.removeEventListener('click', handleRecordingStop)
   playbackButton.removeEventListener('click', handlePlaybackToggle)
   fileInput.removeEventListener('change', handleFileSelection)
+  saveForm.removeEventListener('submit', handleSaveOriginal)
+  titleInput.removeEventListener('input', handleTitleInput)
+  categoryInput.removeEventListener('input', handleCategoryInput)
   audioPlayer.removeEventListener('canplay', setPlaybackReady)
   audioPlayer.removeEventListener('loadedmetadata', setPlaybackReady)
   audioPlayer.removeEventListener('play', updatePlaybackButton)
   audioPlayer.removeEventListener('pause', updatePlaybackButton)
   audioPlayer.removeEventListener('ended', updatePlaybackButton)
   audioPlayer.removeEventListener('error', handlePlaybackError)
+}
+
+function handleTitleInput() {
+  handleSaveFieldInput(titleInput, titleError)
+}
+
+function handleCategoryInput() {
+  handleSaveFieldInput(categoryInput, categoryError)
 }
 
 function handlePageHide(event) {
@@ -304,6 +583,9 @@ recordButton.addEventListener('click', handleRecordingStart)
 stopButton.addEventListener('click', handleRecordingStop)
 playbackButton.addEventListener('click', handlePlaybackToggle)
 fileInput.addEventListener('change', handleFileSelection)
+saveForm.addEventListener('submit', handleSaveOriginal)
+titleInput.addEventListener('input', handleTitleInput)
+categoryInput.addEventListener('input', handleCategoryInput)
 audioPlayer.addEventListener('canplay', setPlaybackReady)
 audioPlayer.addEventListener('loadedmetadata', setPlaybackReady)
 audioPlayer.addEventListener('play', updatePlaybackButton)

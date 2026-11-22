@@ -3,11 +3,13 @@
 -- compare its project reference with SUPABASE_TEST_URL in .env.rls-test.local.
 -- SQL Editor does not expose a reliable project slug to this script.
 --
--- Replace both NULL UUID placeholders below with the disposable RLS User B
--- (seller) and User A (buyer) UUIDs from Authentication > Users. Do not
--- change their roles or subscriptions.
+-- Verify the UUIDs below match disposable RLS User B (seller) and User A
+-- (buyer) accounts from Authentication > Users. Do not change their roles or
+-- subscriptions.
 --
--- These rows contain placeholder paths only. No Storage objects are created.
+-- This is trusted administrative metadata setup and intentionally bypasses
+-- RLS. Its fake paths support marketplace visibility tests only; they are not
+-- evidence of Storage access or valid originals. No Storage objects are made.
 -- A successful DO statement persists its rows; do not wrap it in a rollback.
 
 do $rls_api_fixture_setup$
@@ -27,8 +29,17 @@ declare
   v_listing_draft constant uuid := 'e703eea0-75c4-4c12-a100-000000000302';
   v_listing_archived constant uuid := 'e703eea0-75c4-4c12-a100-000000000303';
 begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_roles as r
+    where r.rolname = current_user
+      and (r.rolsuper or r.rolbypassrls)
+  ) then
+    raise exception 'Fixture setup requires a trusted administrative database role; use the authenticated API tests for RLS behavior.';
+  end if;
+
   if v_seller_id is null or v_buyer_id is null then
-    raise exception 'Replace both UUID placeholders with disposable RLS User B and User A UUIDs.';
+    raise exception 'Set the fixture IDs to disposable RLS User B and User A UUIDs.';
   end if;
   if v_seller_id = v_buyer_id then
     raise exception 'The fixture seller and buyer must be different test accounts.';

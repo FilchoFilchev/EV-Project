@@ -126,6 +126,23 @@
   box-shadow: 0 0 0 0.2rem rgba(78, 123, 99, 0.2);
 }
 
+.studio-card .form-control[aria-invalid="true"] {
+  border-color: #b54747;
+}
+
+.studio-card .invalid-feedback:not(:empty) {
+  display: block;
+}
+
+#save-original-status {
+  min-height: 1.5rem;
+}
+
+#save-original-status a {
+  color: var(--ev-accent-hover);
+  font-weight: 700;
+}
+
 .studio-effects {
   background: rgba(226, 239, 230, 0.38);
 }
