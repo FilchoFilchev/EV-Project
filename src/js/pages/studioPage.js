@@ -30,8 +30,10 @@ const fileInput = document.querySelector('#audio-file')
 const audioPlayer = document.querySelector('#studio-audio')
 const effectInputs = [...document.querySelectorAll('input[name="studio-effect"]')]
 const originalEffectInput = document.querySelector('#effect-original')
-const muffleIntensity = document.querySelector('#muffle-intensity')
-const muffleIntensityValue = document.querySelector('#muffle-intensity-value')
+const effectIntensity = document.querySelector('#effect-intensity')
+const effectIntensityLabel = document.querySelector('#effect-intensity-label')
+const effectIntensityValue = document.querySelector('#effect-intensity-value')
+const effectIntensityHelp = document.querySelector('#effect-intensity-help')
 const effectPreviewButton = document.querySelector('#effect-preview-button')
 const effectResetButton = document.querySelector('#effect-reset-button')
 const effectError = document.querySelector('#effect-error')
@@ -56,6 +58,28 @@ const categoryError = document.querySelector('#recording-category-error')
 const recordingService = new RecordingService()
 const recordingSupport = getRecordingSupport()
 const audioPreviewEngine = createAudioPreviewEngine(audioPlayer)
+const effectCopy = {
+  original: {
+    name: 'Original',
+    intensityLabel: 'Effect intensity',
+    intensityHelp: 'Choose Muffle, Distortion, or Echo to adjust its intensity.',
+  },
+  muffle: {
+    name: 'Muffle',
+    intensityLabel: 'Muffle intensity',
+    intensityHelp: 'Higher intensity lowers the filter cutoff and softens more high frequencies.',
+  },
+  distortion: {
+    name: 'Distortion',
+    intensityLabel: 'Distortion intensity',
+    intensityHelp: 'Higher intensity increases saturation. Output gain is limited to protect playback levels.',
+  },
+  echo: {
+    name: 'Echo',
+    intensityLabel: 'Echo intensity',
+    intensityHelp: 'Higher intensity increases the echo mix and feedback within safe limits.',
+  },
+}
 
 let recordingInterval = null
 let recordingStartedAt = null
@@ -94,7 +118,7 @@ async function handleEffectPreview() {
   }
 
   const effect = getSelectedEffect()
-  const intensity = Number(muffleIntensity.value)
+  const intensity = Number(effectIntensity.value)
   clearEffectError()
 
   try {
@@ -103,9 +127,9 @@ async function handleEffectPreview() {
     audioPlayer.currentTime = 0
     await audioPlayer.play()
     effectStatus.textContent =
-      effect === 'muffle'
-        ? `Playing a local Muffle preview at ${intensity}% intensity. The original is unchanged.`
-        : 'Playing the original audio. No effect is applied.'
+      effect === 'original'
+        ? 'Playing the original audio. No effect is applied.'
+        : `Playing a local ${effectCopy[effect].name} preview at ${intensity}% intensity. The original is unchanged.`
   } catch {
     showEffectError(
       'The preview could not start. Check browser audio permissions and try again. Your original audio is unchanged.'
@@ -126,33 +150,34 @@ function handleEffectReset() {
 
 function handleEffectSelectionChange() {
   clearEffectError()
-  effectStatus.textContent =
-    getSelectedEffect() === 'muffle'
-      ? 'Muffle is selected. Choose Preview Muffle to hear it; the original remains unchanged.'
-      : appliedEffect === 'muffle'
-        ? 'Original is selected. Choose Preview Original or Reset to hear the unfiltered audio.'
-        : 'Original audio is selected. Choose Preview Original to listen.'
+  const selectedEffect = getSelectedEffect()
+  const selectedEffectName = effectCopy[selectedEffect].name
+  effectStatus.textContent = selectedEffect === 'original'
+    ? appliedEffect !== 'original'
+      ? 'Original is selected. Choose Preview Original or Reset to hear the unfiltered audio.'
+      : 'Original audio is selected. Choose Preview Original to listen.'
+    : `${selectedEffectName} is selected. Choose Preview ${selectedEffectName} to hear it; the original remains unchanged.`
   updateEffectControls()
 }
 
-function handleMuffleIntensityInput() {
-  const intensity = Number(muffleIntensity.value)
-  muffleIntensityValue.value = `${intensity}%`
-  muffleIntensityValue.textContent = `${intensity}%`
+function handleEffectIntensityInput() {
+  const intensity = Number(effectIntensity.value)
+  effectIntensityValue.value = `${intensity}%`
+  effectIntensityValue.textContent = `${intensity}%`
 
-  if (appliedEffect === 'muffle') {
+  if (appliedEffect === getSelectedEffect() && appliedEffect !== 'original') {
     try {
       audioPreviewEngine.setIntensity(intensity)
     } catch {
-      showEffectError('Muffle intensity could not be updated. Reset the preview and try again.')
+      showEffectError(`${effectCopy[appliedEffect].name} intensity could not be updated. Reset the preview and try again.`)
     }
   }
 }
 
-function handleMuffleIntensityChange() {
-  if (appliedEffect === 'muffle') {
+function handleEffectIntensityChange() {
+  if (appliedEffect === getSelectedEffect() && appliedEffect !== 'original') {
     effectStatus.textContent =
-      `Muffle preview set to ${Number(muffleIntensity.value)}% intensity.`
+      `${effectCopy[appliedEffect].name} preview set to ${Number(effectIntensity.value)}% intensity.`
   }
 }
 
@@ -196,30 +221,32 @@ function updateEffectControls(state = recordingService.state) {
   const isBusy = ['requesting-permission', 'recording', 'processing'].includes(state)
   const unavailable = !playbackAvailable || isBusy || savingOriginal
   const selectedEffect = getSelectedEffect()
+  const selectedEffectCopy = effectCopy[selectedEffect]
 
   effectInputs.forEach((input) => {
     input.disabled =
-      unavailable || (input.value === 'muffle' && !audioPreviewEngine.supported)
+      unavailable || (input.value !== 'original' && !audioPreviewEngine.supported)
   })
-  muffleIntensity.disabled =
-    unavailable || selectedEffect !== 'muffle' || !audioPreviewEngine.supported
+  effectIntensityLabel.textContent = selectedEffectCopy.intensityLabel
+  effectIntensityHelp.textContent = selectedEffectCopy.intensityHelp
+  effectIntensity.disabled =
+    unavailable || selectedEffect === 'original' || !audioPreviewEngine.supported
   effectPreviewButton.disabled = unavailable
-  effectPreviewButton.textContent =
-    selectedEffect === 'muffle' ? 'Preview Muffle' : 'Preview Original'
+  effectPreviewButton.textContent = `Preview ${selectedEffectCopy.name}`
   effectResetButton.disabled =
     unavailable ||
     (selectedEffect === 'original' &&
       appliedEffect === 'original' &&
-      Number(muffleIntensity.value) === DEFAULT_MUFFLE_INTENSITY)
+      Number(effectIntensity.value) === DEFAULT_MUFFLE_INTENSITY)
 }
 
 function resetEffectControls(message = 'Original audio is selected. Choose Preview Original to listen.') {
   audioPreviewEngine.reset()
   appliedEffect = 'original'
   originalEffectInput.checked = true
-  muffleIntensity.value = String(DEFAULT_MUFFLE_INTENSITY)
-  muffleIntensityValue.value = `${DEFAULT_MUFFLE_INTENSITY}%`
-  muffleIntensityValue.textContent = `${DEFAULT_MUFFLE_INTENSITY}%`
+  effectIntensity.value = String(DEFAULT_MUFFLE_INTENSITY)
+  effectIntensityValue.value = `${DEFAULT_MUFFLE_INTENSITY}%`
+  effectIntensityValue.textContent = `${DEFAULT_MUFFLE_INTENSITY}%`
   clearEffectError()
   effectStatus.textContent = audioPreviewEngine.supported
     ? message
@@ -699,8 +726,8 @@ function removePageListeners() {
   audioPlayer.removeEventListener('ended', updatePlaybackButton)
   audioPlayer.removeEventListener('error', handlePlaybackError)
   effectInputs.forEach((input) => input.removeEventListener('change', handleEffectSelectionChange))
-  muffleIntensity.removeEventListener('input', handleMuffleIntensityInput)
-  muffleIntensity.removeEventListener('change', handleMuffleIntensityChange)
+  effectIntensity.removeEventListener('input', handleEffectIntensityInput)
+  effectIntensity.removeEventListener('change', handleEffectIntensityChange)
   effectPreviewButton.removeEventListener('click', handleEffectPreview)
   effectResetButton.removeEventListener('click', handleEffectReset)
 }
@@ -750,8 +777,8 @@ audioPlayer.addEventListener('pause', updatePlaybackButton)
 audioPlayer.addEventListener('ended', updatePlaybackButton)
 audioPlayer.addEventListener('error', handlePlaybackError)
 effectInputs.forEach((input) => input.addEventListener('change', handleEffectSelectionChange))
-muffleIntensity.addEventListener('input', handleMuffleIntensityInput)
-muffleIntensity.addEventListener('change', handleMuffleIntensityChange)
+effectIntensity.addEventListener('input', handleEffectIntensityInput)
+effectIntensity.addEventListener('change', handleEffectIntensityChange)
 effectPreviewButton.addEventListener('click', handleEffectPreview)
 effectResetButton.addEventListener('click', handleEffectReset)
 window.addEventListener('pagehide', handlePageHide)

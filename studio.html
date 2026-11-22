@@ -144,7 +144,7 @@
             <div class="card-body p-4">
               <h2 id="effects-heading" class="h6 mb-2">Audio effects</h2>
               <p class="text-secondary mb-4">
-                Preview a low-pass Muffle effect locally. Your original audio remains unchanged and is not uploaded or replaced by this preview.
+                Preview Muffle, Distortion, or Echo locally. Your original audio remains unchanged and is not uploaded or replaced by these previews.
               </p>
               <fieldset class="studio-effect-options mb-3">
                 <legend class="form-label fw-semibold">Preview mode</legend>
@@ -172,26 +172,48 @@
                     />
                     <label class="form-check-label" for="effect-muffle">Muffle</label>
                   </div>
+                  <div class="form-check">
+                    <input
+                      id="effect-distortion"
+                      class="form-check-input"
+                      type="radio"
+                      name="studio-effect"
+                      value="distortion"
+                      disabled
+                    />
+                    <label class="form-check-label" for="effect-distortion">Distortion</label>
+                  </div>
+                  <div class="form-check">
+                    <input
+                      id="effect-echo"
+                      class="form-check-input"
+                      type="radio"
+                      name="studio-effect"
+                      value="echo"
+                      disabled
+                    />
+                    <label class="form-check-label" for="effect-echo">Echo</label>
+                  </div>
                 </div>
               </fieldset>
               <div class="studio-intensity-control mb-3">
-                <label class="form-label fw-semibold d-flex justify-content-between" for="muffle-intensity">
-                  <span>Muffle intensity</span>
-                  <output id="muffle-intensity-value" for="muffle-intensity">50%</output>
+                <label class="form-label fw-semibold d-flex justify-content-between" for="effect-intensity">
+                  <span id="effect-intensity-label">Effect intensity</span>
+                  <output id="effect-intensity-value" for="effect-intensity">50%</output>
                 </label>
                 <input
-                  id="muffle-intensity"
+                  id="effect-intensity"
                   class="form-range"
                   type="range"
                   min="0"
                   max="100"
                   step="1"
                   value="50"
-                  aria-describedby="muffle-intensity-help"
+                  aria-describedby="effect-intensity-help"
                   disabled
                 />
-                <p id="muffle-intensity-help" class="form-text mb-0">
-                  Higher intensity lowers the filter cutoff and softens more high frequencies.
+                <p id="effect-intensity-help" class="form-text mb-0">
+                  Choose Muffle, Distortion, or Echo to adjust its intensity.
                 </p>
               </div>
               <div id="effect-error" class="alert alert-danger py-2" role="alert" hidden></div>
