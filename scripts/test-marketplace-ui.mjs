@@ -106,7 +106,7 @@ async function setup(page = 'marketplace', overrides = {}) {
       elements.get('#license-filter').value = 'all'
     }
   }
-  const calls = { list: 0, details: [], preview: [] }
+  const calls = { list: 0, details: [], preview: [], reportForms: [] }
   const state = {
     user: { id: ownerId }, listResult: { listings: [listing, secondListing], error: null },
     detailResult: { listing, error: null }, ...overrides,
@@ -134,6 +134,15 @@ async function setup(page = 'marketplace', overrides = {}) {
     'navbar.js': { renderNavbar() {} }, 'footer.js': { renderFooter() {} },
     'pageTransitions.js': { initPageTransitions() {} },
     'routeGuard.js': { requireAuthentication: async () => state.authPromise ? state.authPromise : state.user },
+    'listingReport.js': {
+      createListingReportForm(item, options) {
+        calls.reportForms.push({ listingId: item.listing_id, userId: options.userId })
+        const report = new Element('section')
+        report.setAttribute('aria-label', 'Report listing')
+        report.textContent = 'Report form'
+        return report
+      },
+    },
     'licenseService.js': {
       async demoCheckout() { throw new Error('The marketplace browsing regression must never issue checkout') },
       async getMyLicense() { throw new Error('The marketplace browsing regression must never load a receipt') },
@@ -292,7 +301,8 @@ const buttons = nodes.filter((node) => node.tagName === 'button')
 const ownOffers = buttons.filter((button) => ['Demo Buy', 'Demo Rent · 30 days'].includes(button.textContent))
 assert.equal(ownOffers.length, 2)
 assert.ok(ownOffers.every((button) => button.disabled))
-assert.ok(buttons.some((button) => button.textContent === 'Report' && button.disabled && button.listeners.size === 0))
+assert.deepEqual(ui.calls.reportForms, [{ listingId, userId: ownerId }], 'details passes only the current session identity and listing to the report component')
+assert.ok(nodes.some((node) => node.getAttribute('aria-label') === 'Report listing'))
 assert.match(ui.get('details-content').textContent, /cannot buy or rent your own/)
 assertPublicOnly(ui, 'details-content')
 ui.windowListeners.get('pagehide')()

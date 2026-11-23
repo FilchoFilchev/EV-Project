@@ -5,6 +5,7 @@ import { initPageTransitions } from '../utils/pageTransitions.js'
 import { requireAuthentication } from '../utils/routeGuard.js'
 import { createPreviewPlayer, createPriceList, pauseMarketplacePreviews } from '../components/voiceCard.js'
 import { createDemoCheckout } from '../components/demoCheckout.js'
+import { createListingReportForm } from '../components/listingReport.js'
 import { getMarketplaceListing } from '../services/marketplaceService.js'
 import { formatMarketplaceDate, getEffectName } from '../utils/marketplaceFilters.js'
 
@@ -63,13 +64,7 @@ function renderDetails(listing) {
   if (listing.sale_price_cents != null) terms.append(element('li', 'mb-2', 'Demo Buy offers a perpetual, nonexclusive license to use this specific audio file. It does not transfer ownership of the creator’s voice.'))
   if (listing.rental_price_cents != null) terms.append(element('li', 'mb-2', 'Demo Rent offers a license for 30 days. After expiry, new downloads stop; previously downloaded copies cannot be removed.'))
   terms.append(element('li', '', 'Archiving a listing preserves licenses already issued.'))
-  const report = element('button', 'btn btn-outline-danger', 'Report')
-  report.type = 'button'
-  report.disabled = true
-  report.setAttribute('aria-describedby', 'report-availability')
-  const reportAvailability = element('p', 'small text-secondary mt-2 mb-0', 'Reporting will be available with moderation tools.')
-  reportAvailability.id = 'report-availability'
-  offerBody.append(terms, report, reportAvailability)
+  offerBody.append(terms, createListingReportForm(listing, { userId: currentUser?.id }))
   offers.append(offerBody)
   secondary.append(offers)
   content.replaceChildren(primary, secondary)

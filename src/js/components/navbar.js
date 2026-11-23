@@ -1,5 +1,6 @@
 import {
   getCurrentUser,
+  getCurrentUserRole,
   signOut,
   subscribeToAuthState,
 } from '../services/authService.js'
@@ -50,6 +51,26 @@ function initializeNavbarAuth(activePage) {
   let authStateVersion = 0
   let signingOut = false
 
+  function addAdminNavigation(user, version) {
+    if (!user) return
+    // Defer Auth calls until the Supabase auth-state callback has returned.
+    window.setTimeout(async () => {
+      const { role, error } = await getCurrentUserRole()
+      if (error || role !== 'admin' || authStateVersion !== version || currentUser?.id !== user.id) return
+      if (pageLinks.querySelector('[data-admin-link]')) return
+      const item = document.createElement('li')
+      item.className = 'nav-item'
+      const link = document.createElement('a')
+      link.className = `nav-link${activePage === 'admin' ? ' active' : ''}`
+      link.href = '/admin.html'
+      link.textContent = 'Admin'
+      link.setAttribute('data-admin-link', '')
+      if (activePage === 'admin') link.setAttribute('aria-current', 'page')
+      item.append(link)
+      pageLinks.append(item)
+    }, 0)
+  }
+
   container.addEventListener('click', async (event) => {
     const logoutButton = event.target.closest('[data-action="logout"]')
     if (!logoutButton || signingOut) {
@@ -82,6 +103,7 @@ function initializeNavbarAuth(activePage) {
         ? 'Authentication is unavailable. Please try again.'
         : null
     )
+    addAdminNavigation(currentUser, authStateVersion)
   })
 
   const initialAuthStateVersion = authStateVersion
@@ -98,6 +120,7 @@ function initializeNavbarAuth(activePage) {
       currentUser,
       error ? 'Unable to verify sign-in status. Please try again.' : null
     )
+    addAdminNavigation(currentUser, authStateVersion)
   })
 }
 

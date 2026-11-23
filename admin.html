@@ -12,12 +12,22 @@
     <div id="app" data-page="admin" data-auth-state="pending">
       <div id="navbar"></div>
       <main id="page-content" class="container py-5">
-        <h1 class="h2 mb-4">Admin panel</h1>
-        <div class="alert alert-warning">Admin access and operations require server-side authorization.</div>
-        <div class="row g-3">
-          <div class="col-md-4"><article class="card page-card"><div class="card-body"><h2 class="h5">Users</h2><p class="text-secondary">Profiles and demo Premium status.</p></div></article></div>
-          <div class="col-md-4"><article class="card page-card"><div class="card-body"><h2 class="h5">Listings</h2><p class="text-secondary">Archive or restore marketplace listings.</p></div></article></div>
-          <div class="col-md-4"><article class="card page-card"><div class="card-body"><h2 class="h5">Reports</h2><p class="text-secondary">Review and resolve user reports.</p></div></article></div>
+        <h1 class="h2 mb-3">Admin panel</h1>
+        <p class="text-secondary mb-4">Review reports, archive or restore listings, and manage demo Premium. Existing licenses remain valid after archival.</p>
+        <div class="nav nav-tabs mb-4" role="tablist" aria-label="Administration">
+          <button id="admin-tab-reports" class="nav-link active" type="button" role="tab" aria-selected="true" aria-controls="admin-panel" tabindex="0">Reports</button>
+          <button id="admin-tab-listings" class="nav-link" type="button" role="tab" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Listings</button>
+          <button id="admin-tab-users" class="nav-link" type="button" role="tab" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Users</button>
+        </div>
+        <div id="admin-panel" role="tabpanel" aria-labelledby="admin-tab-reports" tabindex="0">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <h2 id="admin-heading" class="h4 mb-0">Reports</h2>
+            <button id="admin-refresh" class="btn btn-outline-primary" type="button">Refresh reports</button>
+          </div>
+          <p id="admin-status" role="status" aria-live="polite"></p>
+          <div id="admin-error" class="alert alert-danger" role="alert" hidden></div>
+          <p id="admin-empty" class="alert alert-secondary" hidden></p>
+          <div id="admin-list" class="row g-3" aria-busy="false"></div>
         </div>
       </main>
       <div id="footer"></div>
