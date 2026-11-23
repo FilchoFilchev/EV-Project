@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { createContext, SourceTextModule, SyntheticModule } from 'node:vm'
 
-// Render persisted license receipts only. All service calls are local stubs.
+// Receipt regressions remain local; Prompt 16 audio actions are stubbed here.
 const buyId = '11111111-1111-4111-8111-111111111111'
 const rentId = '22222222-2222-4222-8222-222222222222'
 const privateUrl = 'https://example.invalid/storage/v1/object/voice-files/private.wav'
@@ -36,6 +36,7 @@ class Element {
   setAttribute(name, value) { this.attributes.set(name, String(value)) }
   getAttribute(name) { return this.attributes.get(name) ?? null }
   addEventListener(name, handler) { this.listeners.set(name, handler) }
+  removeEventListener(name) { this.listeners.delete(name) }
   async dispatch(name) { await this.listeners.get(name)?.({ preventDefault() {} }) }
 }
 const deferred = () => {
@@ -51,6 +52,7 @@ async function setup(overrides = {}) {
   const state = { result: { licenses: [buy, expiredRental], error: null }, calls: 0, ...overrides }
   const context = createContext({
     console, Date, Intl, Number,
+    window: { addEventListener() {}, removeEventListener() {}, clearTimeout() {} },
     document: {
       createElement: (tag) => new Element(tag),
       querySelector: (id) => { assert.ok(elements.has(id), `Missing element ${id}`); return elements.get(id) },
@@ -65,6 +67,16 @@ async function setup(overrides = {}) {
         if (specifier.endsWith('/licenseService.js')) {
           return new SyntheticModule(['listMyLicenses'], function () {
             this.setExport('listMyLicenses', async () => { state.calls++; if (state.throws) throw new Error('Connection failed'); return state.pending ?? state.result })
+          }, { context })
+        }
+        if (specifier.endsWith('/licensedAudioService.js')) {
+          return new SyntheticModule(['getLicensedAudio'], function () {
+            this.setExport('getLicensedAudio', async () => { throw new Error('Rendering receipts must not load audio') })
+          }, { context })
+        }
+        if (specifier.endsWith('/authService.js')) {
+          return new SyntheticModule(['subscribeToAuthState'], function () {
+            this.setExport('subscribeToAuthState', () => () => {})
           }, { context })
         }
         return load(new URL(specifier, parent.identifier))
@@ -99,7 +111,9 @@ assert.match(ui.get('licenses-list').textContent, /Rental validity is checked us
 assert.match(ui.get('licenses-list').textContent, new RegExp(buyId))
 assert.match(ui.get('licenses-list').textContent, new RegExp(rentId))
 assert.ok(!ui.get('licenses-list').textContent.includes(privateUrl))
-assert.ok(!nodes.some((node) => ['audio', 'a', 'button', 'script', 'img'].includes(node.tagName)), 'Prompt 15 does not introduce licensed download controls or untrusted HTML')
+assert.ok(!nodes.some((node) => ['a', 'script', 'img'].includes(node.tagName)), 'Receipts never render untrusted HTML or private download links')
+assert.equal(nodes.filter((node) => node.tagName === 'button').length, 4)
+assert.ok(nodes.filter((node) => node.tagName === 'audio').every((node) => node.hidden && !node.src), 'Full audio is fetched only after an explicit action')
 
 const pending = deferred()
 ui = await setup({ pending: pending.promise })
@@ -144,4 +158,4 @@ assert.match(ui.get('licenses-error').textContent, /could not be loaded/)
 assert.equal(ui.get('licenses-refresh').disabled, false)
 assert.equal(ui.get('licenses-list').getAttribute('aria-busy'), 'false')
 
-console.log('Acquired licenses UI tests passed (persisted prices/expiry, archive preservation, safe text, fallback titles, loading, empty/error/refresh, and no licensed downloads).')
+console.log('Acquired licenses receipt UI regressions passed (persisted prices/expiry, archive preservation, safe text, fallback titles, loading, empty/error/refresh, and no eager audio requests).')
