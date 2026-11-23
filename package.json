@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "npm run build"
+    "test": "node scripts/run-local-tests.mjs",
+    "test:prompt18": "node scripts/run-local-tests.mjs --prompt18",
+    "test:build": "node scripts/test-production-build.mjs",
+    "check:syntax": "node scripts/check-syntax.mjs",
+    "check": "npm test && npm run check:syntax && npm run build && npm run test:build"
   },
   "devDependencies": {
     "supabase": "^3.2.0",

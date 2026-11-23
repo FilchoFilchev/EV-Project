@@ -12,16 +12,26 @@
     <div id="app" data-page="dashboard" data-auth-state="pending">
       <div id="navbar"></div>
       <main id="page-content" class="container py-5">
-        <div class="d-flex flex-column flex-md-row align-md-items-center justify-content-between gap-3 mb-4">
-          <div><h1 class="h2 mb-1">Dashboard</h1><p class="text-secondary mb-0">Your EchoVault overview</p></div>
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+          <div><h1 class="h2 mb-1">Dashboard</h1><p class="text-secondary mb-0">Your EchoVault overview</p><p id="dashboard-plan" class="small mb-0 mt-2" role="status">Checking your plan…</p></div>
           <a class="btn btn-primary" href="/studio.html">Open Studio</a>
         </div>
-        <div class="row g-3">
-          <div class="col-sm-6 col-lg-3"><article class="card page-card"><div class="card-body"><h2 class="h5">My recordings</h2><p class="text-secondary">No data loaded yet.</p></div></article></div>
-          <div class="col-sm-6 col-lg-3"><article class="card page-card"><div class="card-body"><h2 class="h5">Edited versions</h2><p class="text-secondary">No data loaded yet.</p></div></article></div>
-          <div class="col-sm-6 col-lg-3"><article class="card page-card"><div class="card-body"><h2 class="h5">Active listings</h2><p class="text-secondary">No data loaded yet.</p></div></article></div>
-          <div class="col-sm-6 col-lg-3"><article class="card page-card"><div class="card-body"><h2 class="h5">My licenses</h2><p class="text-secondary">No data loaded yet.</p></div></article></div>
+        <p id="dashboard-status" role="status" class="text-secondary">Loading your overview…</p>
+        <div id="dashboard-error" role="alert" class="alert alert-warning" hidden></div>
+        <div id="dashboard-overview" aria-busy="true">
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3"><article class="card page-card h-100"><div class="card-body"><h2 class="h5">My recordings</h2><p id="dashboard-recordings-count" class="h2 mb-0">—</p></div></article></div>
+            <div class="col-sm-6 col-lg-3"><article class="card page-card h-100"><div class="card-body"><h2 class="h5">Edited versions</h2><p id="dashboard-edited-count" class="h2 mb-0">—</p></div></article></div>
+            <div class="col-sm-6 col-lg-3"><article class="card page-card h-100"><div class="card-body"><h2 class="h5">Active listings</h2><p id="dashboard-listings-count" class="h2 mb-0">—</p></div></article></div>
+            <div class="col-sm-6 col-lg-3"><article class="card page-card h-100"><div class="card-body"><h2 class="h5">My licenses</h2><p id="dashboard-licenses-count" class="h2 mb-0">—</p><p class="small text-secondary mt-2 mb-0">All acquired licenses, including past rentals.</p></div></article></div>
+          </div>
+          <section aria-labelledby="dashboard-recent-heading">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><h2 id="dashboard-recent-heading" class="h4 mb-0">Recent recordings</h2><a href="/my-library.html">Open My Library</a></div>
+            <p id="dashboard-empty" class="text-secondary" hidden>No recordings yet. Open Studio to record or upload your first audio.</p>
+            <ul id="dashboard-recent" class="list-group mb-3"></ul>
+          </section>
         </div>
+        <button id="dashboard-refresh" class="btn btn-outline-primary" type="button" disabled>Refresh overview</button>
       </main>
       <div id="footer"></div>
     </div>

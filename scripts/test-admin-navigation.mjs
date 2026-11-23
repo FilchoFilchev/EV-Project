@@ -28,7 +28,7 @@ const deferred = () => {
 }
 
 async function setup({ user = null, role = 'user', roleError = null, rolePending = null, active = 'admin' } = {}) {
-  const elements = new Map(['navbar', 'navbar-auth-actions', 'navbar-page-links'].map((id) => [`#${id}`, new Element()]))
+  const elements = new Map(['navbar', 'navbar-auth-actions', 'navbar-page-links', 'page-content'].map((id) => [`#${id}`, new Element()]))
   const timers = []
   const state = { roleCalls: 0 }
   let auth

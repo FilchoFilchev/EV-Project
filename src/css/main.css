@@ -30,6 +30,27 @@ body {
   color: var(--ev-text);
 }
 
+.skip-link:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1100;
+  padding: 0.75rem 1rem;
+  color: var(--ev-text);
+  background: var(--ev-white);
+  outline: 3px solid var(--ev-accent);
+}
+
+#page-content,
+#terms,
+#privacy {
+  scroll-margin-top: 6rem;
+}
+
+.card-body {
+  overflow-wrap: anywhere;
+}
+
 #app {
   min-height: 100svh;
   display: flex;

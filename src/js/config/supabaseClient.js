@@ -28,10 +28,12 @@ function validateBrowserConfig() {
     }
   }
 
-  if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname) {
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(parsedUrl.hostname)
+  if (!parsedUrl.hostname || parsedUrl.username || parsedUrl.password ||
+      (parsedUrl.protocol !== 'https:' && !(loopback && parsedUrl.protocol === 'http:'))) {
     return {
       supabase: null,
-      error: 'Supabase configuration is invalid: VITE_SUPABASE_URL must use HTTPS.',
+      error: 'Supabase configuration is invalid: use HTTPS, or HTTP on localhost only, without URL credentials.',
     }
   }
 

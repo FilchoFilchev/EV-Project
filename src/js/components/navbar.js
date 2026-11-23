@@ -126,6 +126,7 @@ function initializeNavbarAuth(activePage) {
 
 export function renderNavbar(activePage) {
   document.querySelector('#navbar').innerHTML = `
+    <a class="visually-hidden-focusable skip-link" href="#page-content">Skip to main content</a>
     <header class="site-header border-bottom sticky-top">
       <nav class="container navbar navbar-expand-lg" aria-label="Primary navigation">
         <a class="navbar-brand fw-bold" href="/" aria-label="EchoVault home"><span>E</span>cho<span>V</span>ault</a>
@@ -143,5 +144,6 @@ export function renderNavbar(activePage) {
     </header>
   `
 
+  document.querySelector('#page-content')?.setAttribute('tabindex', '-1')
   initializeNavbarAuth(activePage)
 }
