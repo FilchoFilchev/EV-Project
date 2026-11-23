@@ -134,6 +134,10 @@ async function setup(page = 'marketplace', overrides = {}) {
     'navbar.js': { renderNavbar() {} }, 'footer.js': { renderFooter() {} },
     'pageTransitions.js': { initPageTransitions() {} },
     'routeGuard.js': { requireAuthentication: async () => state.authPromise ? state.authPromise : state.user },
+    'licenseService.js': {
+      async demoCheckout() { throw new Error('The marketplace browsing regression must never issue checkout') },
+      async getMyLicense() { throw new Error('The marketplace browsing regression must never load a receipt') },
+    },
     'marketplaceService.js': {
       async listMarketplaceListings() { calls.list++; return state.listPromise ? state.listPromise : state.listResult },
       async getMarketplaceListing(id) { calls.details.push(id); return state.detailPromise ? state.detailPromise : state.detailResult },
@@ -272,7 +276,7 @@ assert.equal(audioNodes(ui, 'marketplace-list').length, 0)
 assert.match(ui.get('marketplace-list').textContent, /public preview is unavailable/)
 assertPublicOnly(ui, 'marketplace-list')
 
-// Details render escaped metadata, prices, dates and terms; no future action can execute.
+// Details render escaped metadata, prices, dates and terms; own offers stay disabled.
 ui = await setup('details')
 assert.deepEqual(ui.calls.details, [listingId])
 assert.equal(ui.get('details-title').textContent, title)
@@ -285,8 +289,11 @@ assert.match(ui.get('details-content').textContent, /perpetual, nonexclusive/)
 assert.match(ui.get('details-content').textContent, /license for 30 days/)
 assert.match(ui.get('details-content').textContent, /No real money will be charged/)
 const buttons = nodes.filter((node) => node.tagName === 'button')
-assert.equal(buttons.length, 3)
-assert.ok(buttons.every((button) => button.disabled && button.listeners.size === 0))
+const ownOffers = buttons.filter((button) => ['Demo Buy', 'Demo Rent · 30 days'].includes(button.textContent))
+assert.equal(ownOffers.length, 2)
+assert.ok(ownOffers.every((button) => button.disabled))
+assert.ok(buttons.some((button) => button.textContent === 'Report' && button.disabled && button.listeners.size === 0))
+assert.match(ui.get('details-content').textContent, /cannot buy or rent your own/)
 assertPublicOnly(ui, 'details-content')
 ui.windowListeners.get('pagehide')()
 assert.ok(audioNodes(ui, 'details-content').every((player) => player.paused))
@@ -313,4 +320,4 @@ assert.equal(ui.calls.details.length, 2)
 assert.equal(ui.get('details-content').hidden, false)
 assert.equal(ui.get('details-error').hidden, true)
 
-console.log('Marketplace UI tests passed (auth, loading, safe cards/details, filters/reset, empty/errors/retry, public previews and future-action boundaries).')
+console.log('Marketplace UI tests passed (auth, loading, safe cards/details, filters/reset, empty/errors/retry, public previews, own-offer and moderation boundaries).')

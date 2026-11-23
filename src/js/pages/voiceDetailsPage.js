@@ -4,6 +4,7 @@ import { renderFooter } from '../components/footer.js'
 import { initPageTransitions } from '../utils/pageTransitions.js'
 import { requireAuthentication } from '../utils/routeGuard.js'
 import { createPreviewPlayer, createPriceList, pauseMarketplacePreviews } from '../components/voiceCard.js'
+import { createDemoCheckout } from '../components/demoCheckout.js'
 import { getMarketplaceListing } from '../services/marketplaceService.js'
 import { formatMarketplaceDate, getEffectName } from '../utils/marketplaceFilters.js'
 
@@ -19,6 +20,7 @@ const retryButton = document.querySelector('#details-retry')
 const content = document.querySelector('#details-content')
 const listingId = new URLSearchParams(window.location.search).get('id')
 let loading = false
+let currentUser = null
 
 function element(tag, className, text) {
   const node = document.createElement(tag)
@@ -56,21 +58,7 @@ function renderDetails(listing) {
   const offers = element('section', 'card')
   const offerBody = element('div', 'card-body')
   offerBody.append(element('h2', 'h5 mb-3', 'Demo license offers'), createPriceList(listing))
-  const actions = element('div', 'd-flex flex-wrap gap-2 mt-4')
-  for (const [label, offered, className] of [
-    ['Demo Buy', listing.sale_price_cents != null, 'btn btn-primary'],
-    ['Demo Rent · 30 days', listing.rental_price_cents != null, 'btn btn-outline-primary'],
-  ]) {
-    if (!offered) continue
-    const button = element('button', className, label)
-    button.type = 'button'
-    button.disabled = true
-    button.setAttribute('aria-describedby', 'demo-checkout-availability')
-    actions.append(button)
-  }
-  const availability = element('p', 'small text-secondary mt-3 mb-0', 'Demo Checkout is not available yet. No real money will be charged.')
-  availability.id = 'demo-checkout-availability'
-  offerBody.append(actions, availability, element('hr'), element('h3', 'h6', 'License terms'))
+  offerBody.append(createDemoCheckout(listing, { userId: currentUser?.id }), element('hr'), element('h3', 'h6', 'License terms'))
   const terms = element('ul', 'small text-secondary ps-3 mb-3')
   if (listing.sale_price_cents != null) terms.append(element('li', 'mb-2', 'Demo Buy offers a perpetual, nonexclusive license to use this specific audio file. It does not transfer ownership of the creator’s voice.'))
   if (listing.rental_price_cents != null) terms.append(element('li', 'mb-2', 'Demo Rent offers a license for 30 days. After expiry, new downloads stop; previously downloaded copies cannot be removed.'))
@@ -117,7 +105,10 @@ window.addEventListener('pagehide', () => pauseMarketplacePreviews())
 
 async function initializeDetails() {
   const user = await requireAuthentication()
-  if (user) await loadDetails()
+  if (user) {
+    currentUser = user
+    await loadDetails()
+  }
 }
 
 initializeDetails()

@@ -82,6 +82,7 @@ const context = vm.createContext({
   },
   renderNavbar() {}, renderFooter() {}, initPageTransitions() {},
   initListingPublisher: () => ({ open() {}, async loadListings() {}, dispose() {} }),
+  initAcquiredLicenses: () => ({ async load() {} }),
   requireAuthentication: async () => ({ id: 'owner' }),
   listMyOriginalRecordings: async () => ({ recordings: [recording], error: null }),
   listMyEditedVersions: async () => editedResult,

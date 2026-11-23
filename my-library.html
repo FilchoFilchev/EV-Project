@@ -22,7 +22,7 @@
           <li class="nav-item" role="presentation"><button class="nav-link active" id="original-recordings-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#original-recordings" aria-controls="original-recordings" aria-selected="true">Original recordings</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" id="edited-versions-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#edited-versions" aria-controls="edited-versions" aria-selected="false" tabindex="-1">Edited versions</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" id="my-listings-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#my-listings" aria-controls="my-listings" aria-selected="false" tabindex="-1">My listings</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" aria-selected="false" disabled>Acquired licenses</button></li>
+          <li class="nav-item" role="presentation"><button class="nav-link" id="acquired-licenses-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#acquired-licenses" aria-controls="acquired-licenses" aria-selected="false" tabindex="-1">Acquired licenses</button></li>
         </ul>
         <div class="library-panel border border-top-0 rounded-bottom p-3 p-md-4">
           <div class="tab-content">
@@ -56,6 +56,18 @@
               </div>
               <button id="my-listings-refresh" class="btn btn-outline-primary mb-3" type="button">Refresh listings</button>
               <div id="my-listings-list" class="row g-3" aria-label="Your marketplace listings"></div>
+            </section>
+            <section id="acquired-licenses" class="tab-pane" role="tabpanel" aria-labelledby="acquired-licenses-tab" tabindex="0">
+              <p class="text-secondary">Your Demo Checkout receipts. Purchases are perpetual; rentals expire at the saved database timestamp. Archiving preserves issued licenses.</p>
+              <p id="licenses-status" class="text-secondary" role="status" aria-live="polite" aria-atomic="true">Loading your acquired licenses…</p>
+              <div id="licenses-error" class="alert alert-danger" role="alert" hidden></div>
+              <div id="licenses-empty" class="library-empty text-center p-4" hidden>
+                <h2 class="h5">No acquired licenses yet</h2>
+                <p class="text-secondary">Use Demo Buy or Demo Rent on another creator's Marketplace listing. No real money will be charged.</p>
+                <a class="btn btn-primary" href="/marketplace.html">Browse Marketplace</a>
+              </div>
+              <button id="licenses-refresh" class="btn btn-outline-primary mb-3" type="button">Refresh licenses</button>
+              <div id="licenses-list" class="row g-3" aria-label="Your acquired licenses" aria-busy="true"></div>
             </section>
           </div>
           <section id="listing-publisher" class="card listing-publisher mt-4" aria-labelledby="listing-publisher-heading" hidden>

@@ -2,6 +2,7 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import { renderNavbar } from '../components/navbar.js'
 import { renderFooter } from '../components/footer.js'
 import { initListingPublisher } from '../components/listingPublisher.js'
+import { initAcquiredLicenses } from '../components/acquiredLicenses.js'
 import { downloadOriginalAudio } from '../services/storageService.js'
 import { listMyEditedVersions, listMyOriginalRecordings } from '../services/voiceRecordingService.js'
 import { normalizeAudioMimeType } from '../utils/audioUploadValidation.js'
@@ -30,12 +31,16 @@ let activePlaybackId = null
 const downloadUrls = new Map()
 const effectNames = { muffle: 'Muffle', distortion: 'Distortion', echo: 'Echo' }
 const listingPublisher = initListingPublisher()
+const acquiredLicenses = initAcquiredLicenses()
 
 if (window.location.hash === '#edited-versions') {
   document.querySelector('#edited-versions-tab').click()
 }
 if (window.location.hash === '#my-listings') {
   document.querySelector('#my-listings-tab').click()
+}
+if (window.location.hash === '#acquired-licenses') {
+  document.querySelector('#acquired-licenses-tab').click()
 }
 
 function showLibraryError(message) {
@@ -327,10 +332,11 @@ async function loadLibrary() {
   if (!user) {
     libraryStatus.textContent = 'Sign in is required to view your library.'
     editedLibraryStatus.textContent = 'Sign in is required to view your edited versions.'
+    document.querySelector('#licenses-status').textContent = 'Sign in is required to view your licenses.'
     return
   }
 
-  await Promise.all([loadOriginalRecordings(), loadEditedVersions(), listingPublisher.loadListings()])
+  await Promise.all([loadOriginalRecordings(), loadEditedVersions(), listingPublisher.loadListings(), acquiredLicenses.load()])
 }
 
 async function loadOriginalRecordings() {
