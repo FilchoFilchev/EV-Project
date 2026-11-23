@@ -6,19 +6,61 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/src/css/main.css" />
+    <link rel="stylesheet" href="/src/css/marketplace.css" />
     <title>Marketplace | EchoVault</title>
   </head>
   <body>
     <div id="app" data-page="marketplace" data-auth-state="pending">
       <div id="navbar"></div>
       <main id="page-content" class="container py-5">
-        <h1 class="h2 mb-4">Marketplace</h1>
-        <form class="row g-2 mb-4" role="search" aria-label="Search listings">
-          <div class="col-md-6"><label class="visually-hidden" for="market-search">Search title</label><input class="form-control" id="market-search" type="search" placeholder="Search by title" disabled /></div>
-          <div class="col-md-4"><label class="visually-hidden" for="category-filter">Category</label><select class="form-select" id="category-filter" disabled><option>All categories</option></select></div>
-          <div class="col-md-2"><button class="btn btn-primary w-100" type="submit" disabled>Search</button></div>
+        <div class="marketplace-heading mb-4">
+          <h1 class="h2">Marketplace</h1>
+          <p class="text-secondary mb-0">Discover original voices and transformed recordings. Listen to short public previews and explore demo license offers.</p>
+        </div>
+        <form id="marketplace-filters" class="card mb-4" role="search" aria-label="Search and filter listings" novalidate>
+          <fieldset id="marketplace-filter-fields" class="card-body" disabled>
+            <legend class="visually-hidden">Marketplace filters</legend>
+            <div class="row g-3 align-items-end">
+              <div class="col-12 col-md-8">
+                <label class="form-label" for="market-search">Search title or category</label>
+                <input class="form-control" id="market-search" name="search" type="search" maxlength="120" placeholder="Search voices" />
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label" for="category-filter">Category</label>
+                <select class="form-select" id="category-filter" name="category"><option value="">All categories</option></select>
+              </div>
+              <div class="col-12 col-sm-6 col-lg-4">
+                <label class="form-label" for="license-filter">License offer</label>
+                <select class="form-select" id="license-filter" name="license">
+                  <option value="all">All offers</option>
+                  <option value="buy">Demo Buy</option>
+                  <option value="rent">Demo Rent · 30 days</option>
+                </select>
+              </div>
+              <div class="col-6 col-sm-3 col-lg-2">
+                <label class="form-label" for="min-price-filter">Min price (EUR)</label>
+                <input class="form-control" id="min-price-filter" name="minPrice" type="text" inputmode="decimal" maxlength="12" placeholder="0.00" aria-describedby="marketplace-price-help marketplace-filter-error" />
+              </div>
+              <div class="col-6 col-sm-3 col-lg-2">
+                <label class="form-label" for="max-price-filter">Max price (EUR)</label>
+                <input class="form-control" id="max-price-filter" name="maxPrice" type="text" inputmode="decimal" maxlength="12" placeholder="Any" aria-describedby="marketplace-price-help marketplace-filter-error" />
+              </div>
+              <div class="col-6 col-lg-2"><button class="btn btn-primary w-100" type="submit">Search</button></div>
+              <div class="col-6 col-lg-2"><button id="marketplace-clear" class="btn btn-outline-secondary w-100" type="button">Clear filters</button></div>
+            </div>
+            <p id="marketplace-price-help" class="small text-secondary mt-3 mb-0">Prices are in EUR. A listing matches when an available offer of the selected license type is within the price range.</p>
+            <p id="marketplace-filter-error" class="text-danger small mt-2 mb-0" role="alert" hidden></p>
+          </fieldset>
         </form>
-        <div class="alert alert-secondary" role="status">Marketplace listings will appear here after Supabase integration.</div>
+        <p id="marketplace-status" class="text-secondary" role="status" aria-live="polite">Loading marketplace listings…</p>
+        <div id="marketplace-error" class="alert alert-warning" role="alert" hidden>
+          <p id="marketplace-error-message" class="mb-2"></p>
+          <button id="marketplace-retry" class="btn btn-outline-primary" type="button">Try again</button>
+        </div>
+        <div id="marketplace-empty" class="card" hidden>
+          <div class="card-body"><h2 class="h5">No voices to show</h2><p id="marketplace-empty-message" class="text-secondary mb-0"></p></div>
+        </div>
+        <div id="marketplace-list" class="row g-4" aria-label="Marketplace listings" aria-busy="true"></div>
       </main>
       <div id="footer"></div>
     </div>

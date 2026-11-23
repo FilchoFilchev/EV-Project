@@ -8,6 +8,8 @@ import { formatStorageUploadDiagnostics } from '../utils/storageErrorDiagnostics
 const PREVIEW_BUCKET = 'voice-previews'
 const OWNED_VERSION_FIELDS = 'id,recording_id,effect_type,storage_path,duration_seconds,mime_type,file_size_bytes,recording:voice_recordings!inner(id,owner_id,title,category,visibility)'
 const LISTING_FIELDS = 'id,version_id,status,sale_price_cents,rental_price_cents,rental_days,currency,preview_path,preview_duration_seconds,created_at,version:voice_versions!inner(id,effect_type,recording:voice_recordings!inner(id,owner_id,title,category,visibility))'
+const MARKETPLACE_FIELDS = 'listing_id,version_id,recording_id,title,description,category,seller_id,seller_display_name,effect_type,duration_seconds,mime_type,sale_price_cents,rental_price_cents,rental_days,currency,preview_path,created_at'
+const MARKETPLACE_PAGE_SIZE = 200
 
 function failure(message, code = 'listing_error', outcomeUnknown = false) {
   return { message, code, outcomeUnknown }
@@ -193,6 +195,62 @@ export async function archiveMyListing(listingId) {
     return { listing: result.data ?? null, error: result.error ? mapError(result.error) : !result.data ? failure('Archival was not confirmed. Refresh My listings.') : null }
   } catch {
     return { listing: null, error: failure('Archival could not be confirmed. Refresh My listings before trying again.', 'network_outcome_unknown', true) }
+  }
+}
+
+function marketplaceReadError(error) {
+  const status = Number(error?.status ?? error?.statusCode)
+  if (error?.code === '42501' || ['PGRST301', 'PGRST302', 'PGRST303'].includes(error?.code) || status === 401 || status === 403) {
+    return failure('You are not authorized to view Marketplace listings. Please sign in again.', 'access_denied')
+  }
+  return failure('Marketplace listings could not be loaded. Check your connection and try again.', 'load_failed')
+}
+
+async function authenticateMarketplaceRead() {
+  const result = await authenticatedUser()
+  if (result.error?.code === 'authentication_required') {
+    return { user: null, error: failure('Sign in to browse Marketplace listings.', 'authentication_required') }
+  }
+  return result
+}
+
+export async function listMarketplaceListings() {
+  const { error } = await authenticateMarketplaceRead()
+  if (error) return { listings: null, error }
+  const listings = []
+  try {
+    // This existing authenticated-only projection permits published public metadata
+    // without granting access to private voice_versions or their Storage paths.
+    for (let start = 0; ; start += MARKETPLACE_PAGE_SIZE) {
+      const result = await supabase.from('marketplace_listing_summaries').select(MARKETPLACE_FIELDS)
+        .order('created_at', { ascending: false }).order('listing_id', { ascending: true })
+        .range(start, start + MARKETPLACE_PAGE_SIZE - 1)
+      if (result.error) return { listings: null, error: marketplaceReadError(result.error) }
+      const page = result.data ?? []
+      listings.push(...page)
+      if (page.length < MARKETPLACE_PAGE_SIZE) return { listings, error: null }
+    }
+  } catch {
+    return { listings: null, error: marketplaceReadError() }
+  }
+}
+
+export async function getMarketplaceListing(listingId) {
+  if (!isUuid(listingId)) {
+    return { listing: null, error: failure('Open a listing with a valid listing ID.', 'invalid_listing') }
+  }
+  const { error } = await authenticateMarketplaceRead()
+  if (error) return { listing: null, error }
+  try {
+    const result = await supabase.from('marketplace_listing_summaries').select(MARKETPLACE_FIELDS)
+      .eq('listing_id', listingId).maybeSingle()
+    if (result.error) return { listing: null, error: marketplaceReadError(result.error) }
+    if (!result.data) {
+      return { listing: null, error: failure('This listing is unavailable or you do not have permission to view it.', 'not_found') }
+    }
+    return { listing: result.data, error: null }
+  } catch {
+    return { listing: null, error: marketplaceReadError() }
   }
 }
 
