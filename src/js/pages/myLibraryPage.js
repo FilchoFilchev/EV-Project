@@ -1,6 +1,7 @@
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import { renderNavbar } from '../components/navbar.js'
 import { renderFooter } from '../components/footer.js'
+import { initListingPublisher } from '../components/listingPublisher.js'
 import { downloadOriginalAudio } from '../services/storageService.js'
 import { listMyEditedVersions, listMyOriginalRecordings } from '../services/voiceRecordingService.js'
 import { normalizeAudioMimeType } from '../utils/audioUploadValidation.js'
@@ -28,9 +29,13 @@ let activePlaybackUrl = null
 let activePlaybackId = null
 const downloadUrls = new Map()
 const effectNames = { muffle: 'Muffle', distortion: 'Distortion', echo: 'Echo' }
+const listingPublisher = initListingPublisher()
 
 if (window.location.hash === '#edited-versions') {
   document.querySelector('#edited-versions-tab').click()
+}
+if (window.location.hash === '#my-listings') {
+  document.querySelector('#my-listings-tab').click()
 }
 
 function showLibraryError(message) {
@@ -191,7 +196,27 @@ function createRecordingCard(recording, version = recording.original, edited = f
   downloadButton.setAttribute('aria-label', `Download ${audioTitle}`)
   downloadButton.addEventListener('click', () => handleDownload(audio, downloadButton))
 
-  actions.append(playButton, downloadButton)
+  const publishButton = document.createElement('button')
+  publishButton.className = 'btn btn-outline-primary'
+  publishButton.type = 'button'
+  publishButton.textContent = 'Publish'
+  const publishDuration = Number(version?.duration_seconds)
+  publishButton.disabled = !hasAudioPath || !version?.id || !Number.isFinite(publishDuration) || publishDuration < 5
+  publishButton.setAttribute('aria-label', `Publish ${audioTitle}`)
+  publishButton.addEventListener('click', () => listingPublisher.open({
+    versionId: version.id,
+    title: audioTitle,
+    durationSeconds: Number(version.duration_seconds),
+  }))
+  if (publishDuration < 5) {
+    publishButton.title = 'Publishing requires at least 5 seconds of saved audio.'
+    const publishHelp = document.createElement('p')
+    publishHelp.className = 'small text-secondary mt-3 mb-0'
+    publishHelp.textContent = 'Publishing requires at least 5 seconds of saved audio.'
+    body.append(publishHelp)
+  }
+
+  actions.append(playButton, downloadButton, publishButton)
   body.append(actions)
   card.append(body)
   column.append(card)
@@ -305,7 +330,7 @@ async function loadLibrary() {
     return
   }
 
-  await Promise.all([loadOriginalRecordings(), loadEditedVersions()])
+  await Promise.all([loadOriginalRecordings(), loadEditedVersions(), listingPublisher.loadListings()])
 }
 
 async function loadOriginalRecordings() {
@@ -346,6 +371,7 @@ async function loadEditedVersions() {
 }
 
 function handlePageHide(event) {
+  listingPublisher.dispose()
   releasePlaybackSource()
   downloadUrls.forEach((timeoutId, url) => {
     window.clearTimeout(timeoutId)

@@ -81,6 +81,7 @@ const context = vm.createContext({
     revokeObjectURL: (url) => revokedUrls.push(url),
   },
   renderNavbar() {}, renderFooter() {}, initPageTransitions() {},
+  initListingPublisher: () => ({ open() {}, async loadListings() {}, dispose() {} }),
   requireAuthentication: async () => ({ id: 'owner' }),
   listMyOriginalRecordings: async () => ({ recordings: [recording], error: null }),
   listMyEditedVersions: async () => editedResult,

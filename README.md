@@ -6,6 +6,13 @@ transforming, storing, and demo-licensing voice recordings.
 This repository currently contains the project setup. The application is
 implemented incrementally, one feature prompt at a time.
 
+Prompt 13 adds publishing and archiving demo Marketplace listings in My Library,
+with separate 5–8 second public previews. See the
+[Prompt 13 validation and setup notes](docs/prompt13-validation.md) for both
+applied development migrations, security limits, automated checks, and browser
+test scenarios. The project owner confirmed successful real publishing after
+the Storage authorization correction.
+
 ## Technology
 
 - HTML5 and CSS3

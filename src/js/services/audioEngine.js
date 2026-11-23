@@ -1,4 +1,5 @@
 import { MAX_AUDIO_FILE_SIZE_BYTES } from '../utils/audioUploadValidation.js'
+import { PREVIEW_SAMPLE_RATE, validatePreviewSelection } from '../utils/listingValidation.js'
 
 export const DEFAULT_MUFFLE_INTENSITY = 50
 
@@ -254,6 +255,44 @@ export async function renderAudioWav(sourceBlob, { effectType, intensity } = {})
     durationSeconds: rendered.length / rendered.sampleRate,
     effectType,
     effectSettings: getAudioEffectSettings(effectType, normalizedIntensity),
+  }
+}
+
+export async function renderPublicPreview(sourceBlob, { startSeconds = 0, durationSeconds = 5 } = {}) {
+  const selectionError = validatePreviewSelection(startSeconds, durationSeconds)
+  if (selectionError) throw new RangeError(selectionError)
+  if (!sourceBlob || typeof sourceBlob.arrayBuffer !== 'function' || !Number.isSafeInteger(sourceBlob.size) || sourceBlob.size <= 0) {
+    throw new TypeError('Choose a non-empty saved audio version before generating a preview.')
+  }
+  if (sourceBlob.size > MAX_AUDIO_FILE_SIZE_BYTES) throw new RangeError('Audio files must be 20 MiB or smaller.')
+  const OfflineContext = globalThis.OfflineAudioContext ?? globalThis.webkitOfflineAudioContext
+  if (typeof OfflineContext !== 'function') throw new Error('Preview generation is not supported by this browser.')
+  // Offline contexts do not open the microphone or an audio device and have no close() API.
+  const decoder = new OfflineContext(1, 1, PREVIEW_SAMPLE_RATE)
+  let decoded
+  try {
+    decoded = await decoder.decodeAudioData(await sourceBlob.arrayBuffer())
+  } catch {
+    throw new Error('This saved audio could not be decoded. Choose another version or browser.')
+  }
+  if (![1, 2].includes(decoded.numberOfChannels) || !Number.isFinite(decoded.duration) ||
+      startSeconds + durationSeconds > decoded.duration + 0.000001) {
+    throw new RangeError('Choose a 5–8 second segment that fits entirely inside a mono or stereo recording.')
+  }
+  const frameCount = Math.round(durationSeconds * PREVIEW_SAMPLE_RATE)
+  const context = new OfflineContext(1, frameCount, PREVIEW_SAMPLE_RATE)
+  const source = context.createBufferSource()
+  source.buffer = decoded
+  source.connect(context.destination)
+  try {
+    source.start(0, startSeconds, durationSeconds)
+    const rendered = await context.startRendering()
+    if (rendered.numberOfChannels !== 1 || rendered.sampleRate !== PREVIEW_SAMPLE_RATE || rendered.length !== frameCount) {
+      throw new Error('The browser returned an invalid preview. Try generating it again.')
+    }
+    return { blob: encodeAudioBufferToWav(rendered), startSeconds, durationSeconds: frameCount / PREVIEW_SAMPLE_RATE }
+  } finally {
+    source.disconnect()
   }
 }
 

@@ -53,3 +53,32 @@
   outline: 3px solid var(--ev-accent);
   outline-offset: 3px;
 }
+
+.library-recording-actions {
+  flex-wrap: wrap;
+}
+
+.listing-publisher {
+  border-color: var(--ev-border);
+  background: var(--ev-white);
+}
+
+.listing-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.listing-publisher fieldset {
+  min-width: 0;
+}
+
+.listing-publisher .form-check-label {
+  line-height: 1.5;
+}
+
+.listing-archive-confirmation {
+  padding: 1rem;
+  border: 1px solid var(--ev-border);
+  border-radius: var(--ev-radius);
+  background: var(--ev-secondary-bg);
+}

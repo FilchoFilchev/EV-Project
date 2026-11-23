@@ -21,7 +21,7 @@
         <ul class="nav nav-tabs mb-0" role="tablist" aria-label="Library sections">
           <li class="nav-item" role="presentation"><button class="nav-link active" id="original-recordings-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#original-recordings" aria-controls="original-recordings" aria-selected="true">Original recordings</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" id="edited-versions-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#edited-versions" aria-controls="edited-versions" aria-selected="false" tabindex="-1">Edited versions</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" aria-selected="false" disabled>My listings</button></li>
+          <li class="nav-item" role="presentation"><button class="nav-link" id="my-listings-tab" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#my-listings" aria-controls="my-listings" aria-selected="false" tabindex="-1">My listings</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" aria-selected="false" disabled>Acquired licenses</button></li>
         </ul>
         <div class="library-panel border border-top-0 rounded-bottom p-3 p-md-4">
@@ -46,7 +46,76 @@
               </div>
               <div id="edited-library-list" class="row g-3" aria-label="Edited versions"></div>
             </section>
+            <section id="my-listings" class="tab-pane" role="tabpanel" aria-labelledby="my-listings-tab" tabindex="0">
+              <p class="text-secondary">Manage your demo license offers. Archiving keeps existing licenses valid.</p>
+              <p id="my-listings-status" class="text-secondary" role="status" aria-live="polite" aria-atomic="true">Loading your listings...</p>
+              <div id="my-listings-error" class="alert alert-danger" role="alert" hidden></div>
+              <div id="my-listings-empty" class="library-empty text-center p-4" hidden>
+                <h2 class="h5">No listings yet</h2>
+                <p class="text-secondary mb-0">Choose Publish on an original recording or edited version to create a demo offer with a short public preview.</p>
+              </div>
+              <button id="my-listings-refresh" class="btn btn-outline-primary mb-3" type="button">Refresh listings</button>
+              <div id="my-listings-list" class="row g-3" aria-label="Your marketplace listings"></div>
+            </section>
           </div>
+          <section id="listing-publisher" class="card listing-publisher mt-4" aria-labelledby="listing-publisher-heading" hidden>
+            <div class="card-body p-3 p-md-4">
+              <h2 id="listing-publisher-heading" class="h4" tabindex="-1">Publish a voice version</h2>
+              <p id="listing-publisher-title" class="fw-semibold listing-text"></p>
+              <p class="text-secondary">Offer a nonexclusive demo license. No real money is charged. Your short preview and listing details become public. Full audio stays private.</p>
+              <form id="listing-publish-form">
+                <fieldset id="listing-publish-fields">
+                  <legend class="h6">Create your public preview</legend>
+                  <p id="listing-preview-help" class="small text-secondary">Choose 5–8 seconds from this saved version, then generate and listen to the preview before publishing.</p>
+                  <div class="row g-3 mb-3">
+                    <div class="col-12 col-sm-6">
+                      <label class="form-label" for="listing-preview-start">Start time (seconds)</label>
+                      <input id="listing-preview-start" class="form-control" type="number" min="0" step="0.001" value="0" required aria-describedby="listing-preview-help" />
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <label class="form-label" for="listing-preview-duration">Preview length (seconds)</label>
+                      <input id="listing-preview-duration" class="form-control" type="number" min="5" max="8" step="0.001" value="5" required aria-describedby="listing-preview-help" />
+                    </div>
+                  </div>
+                  <button id="listing-generate-preview" class="btn btn-outline-primary mb-3" type="button">Generate preview</button>
+                  <audio id="listing-local-preview" class="library-audio-player mb-3" controls preload="metadata" aria-label="Generated public preview" hidden></audio>
+                  <div class="row g-3 mb-3">
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check mb-2">
+                        <input id="listing-sale-enabled" class="form-check-input" type="checkbox" checked />
+                        <label class="form-check-label" for="listing-sale-enabled">Demo sale · perpetual license</label>
+                      </div>
+                      <label class="form-label" for="listing-sale-price">Sale price (EUR)</label>
+                      <input id="listing-sale-price" class="form-control" type="text" inputmode="decimal" maxlength="11" placeholder="e.g. 5.00" pattern="[0-9]+([.,][0-9]{1,2})?" required aria-describedby="listing-price-help" />
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check mb-2">
+                        <input id="listing-rental-enabled" class="form-check-input" type="checkbox" />
+                        <label class="form-check-label" for="listing-rental-enabled">Demo rental · 30 days</label>
+                      </div>
+                      <label class="form-label" for="listing-rental-price">Rental price (EUR)</label>
+                      <input id="listing-rental-price" class="form-control" type="text" inputmode="decimal" maxlength="11" placeholder="e.g. 1.50" pattern="[0-9]+([.,][0-9]{1,2})?" disabled aria-describedby="listing-price-help" />
+                    </div>
+                  </div>
+                  <p id="listing-price-help" class="small text-secondary">Enable sale, rental, or both. Use positive euro amounts with at most two decimal places. Rentals last exactly 30 days.</p>
+                  <div class="form-check mb-3">
+                    <input id="listing-public-confirmed" class="form-check-input" type="checkbox" required />
+                    <label class="form-check-label" for="listing-public-confirmed">Make this source recording's title, category, description, and creator information public for Marketplace publication. The full audio remains private.</label>
+                  </div>
+                  <div class="form-check mb-3">
+                    <input id="listing-rights-confirmed" class="form-check-input" type="checkbox" required />
+                    <label class="form-check-label" for="listing-rights-confirmed">I have the rights and consent to publish this voice and offer these demo licenses.</label>
+                  </div>
+                  <div class="d-flex flex-column flex-sm-row gap-2">
+                    <button id="listing-publish-submit" class="btn btn-primary" type="submit" disabled>Publish demo listing</button>
+                    <button id="listing-publish-cancel" class="btn btn-outline-secondary" type="button">Cancel</button>
+                  </div>
+                </fieldset>
+              </form>
+              <p id="listing-publish-status" class="text-secondary mt-3 mb-0" role="status" aria-live="polite" aria-atomic="true"></p>
+              <div id="listing-publish-error" class="alert alert-danger mt-3 mb-0" role="alert" hidden></div>
+            </div>
+          </section>
           <section id="library-playback" class="card library-playback mt-4" aria-labelledby="library-playback-heading" hidden>
             <div class="card-body">
               <h2 id="library-playback-heading" class="h6 mb-2">Private audio playback</h2>
